@@ -6,6 +6,12 @@ import { ContentTypeDelete, DeleteCodec } from "./codecs/DeleteCodec";
 
 export const fetchMessages = async (conversation: ChatConversation): Promise<ChatMessage[]> => {
     try {
+        // Double check activity status
+        const active = await (conversation as any).isActive();
+        if (!active) {
+            console.warn("Conversation is inactive, syncing before fetching messages...");
+        }
+
         // Sync the conversation from the network first to get the latest messages.
         // This is critical for User2 to see User1's messages without needing a manual refresh.
         await conversation.sync();
@@ -22,6 +28,17 @@ export const sendMessage = async (
     content: string | File
 ): Promise<string> => { // Returns message ID
     try {
+        // Double check activity status
+        const active = await (conversation as any).isActive();
+        if (!active) {
+            console.warn("Conversation is inactive, attempting one final sync before sending...");
+            await conversation.sync();
+            const stillActive = await (conversation as any).isActive();
+            if (!stillActive) {
+                throw new Error("Group is inactive. You cannot send messages to this conversation anymore.");
+            }
+        }
+
         if (content instanceof File) {
             console.log("ContentTypeRemoteAttachment:", ContentTypeRemoteAttachment);
             // Check if file is small enough for direct attachment (limit < 1MB for example) 
@@ -87,6 +104,12 @@ export const streamMessages = async (
 
     (async () => {
         try {
+            // Check activity before streaming
+            const active = await (conversation as any).isActive();
+            if (!active) {
+                await conversation.sync();
+            }
+
             stream = await conversation.stream();
             for await (const message of stream) {
                 if (!isStreaming) break;

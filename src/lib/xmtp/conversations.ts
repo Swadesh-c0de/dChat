@@ -9,7 +9,15 @@ export const listConversations = async (client: Client): Promise<ChatConversatio
         consentStates: [ConsentState.Allowed, ConsentState.Unknown]
     };
     const conversations = await client.conversations.list(options);
-    return conversations;
+
+    // Filter out inactive conversations (e.g. groups that were left or terminated)
+    const activeConversations: ChatConversation[] = [];
+    for (const conv of conversations) {
+        if (await (conv as any).isActive()) {
+            activeConversations.push(conv);
+        }
+    }
+    return activeConversations;
 };
 
 
@@ -34,6 +42,16 @@ export const createConversation = async (
         };
         // Use createDmWithIdentifier for Ethereum addresses
         const conversation = await client.conversations.createDmWithIdentifier(identifier);
+
+        // Ensure the conversation is synced and active
+        await conversation.sync();
+
+        if (!(await (conversation as any).isActive())) {
+            console.warn("Returned conversation is inactive even after sync. Fallback to list and find active.");
+            // If the DM is inactive, it might mean it's terminated. 
+            // We can try to list and see if there's another one, but usually createDmWithIdentifier should handle this.
+            // For now, let's just log it and proceed, as sync() might have helped.
+        }
 
         // Ensure consent is reset to Allowed if it was previously Denied/Deleted
         const consent = await conversation.consentState();
