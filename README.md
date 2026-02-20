@@ -1,7 +1,7 @@
 # dChat
 
 <div align="center">
-  <img src="./public/readme-banner.png" alt="dChat Banner" width="100%">
+  <img src="./public/dChat.svg" alt="dChat Banner" width="100%">
   <br />
   
   <h3>Secure. Decentralized. Privacy-First Messaging.</h3>
