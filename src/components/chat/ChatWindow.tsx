@@ -94,7 +94,7 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
     };
 
     // Resolve display info
-    const { title, isLoading: isTitleLoading } = useConversationDisplay(conversation);
+    const { title, isLoading: isTitleLoading, avatarSeed } = useConversationDisplay(conversation);
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         messagesEndRef.current?.scrollIntoView({ behavior });
@@ -116,61 +116,123 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
 
     useEffect(() => {
         let cleanup: (() => void) | undefined;
+        let pollInterval: ReturnType<typeof setInterval> | undefined;
 
         const loadMessages = async () => {
             setIsLoading(true);
             try {
-                const initialMessages = await fetchMessages(conversation);
+                const processAndSetMessages = (newMessages: ChatMessage[]) => {
+                    const historicalDeletes = newMessages.filter(m =>
+                        m.contentType.typeId === "delete" && m.contentType.authorityId === "xmtp.org"
+                    );
 
-                // Process historical deletes
-                const historicalDeletes = initialMessages.filter(m =>
-                    m.contentType.typeId === "delete" && m.contentType.authorityId === "xmtp.org"
-                );
+                    if (historicalDeletes.length > 0) {
+                        const newHiddenIds = new Set<string>();
+                        historicalDeletes.forEach(m => {
+                            const content = m.content as any;
+                            if (content && content.messageId) {
+                                newHiddenIds.add(content.messageId);
+                            }
+                        });
 
-                const newHiddenIds = new Set<string>();
-                if (historicalDeletes.length > 0) {
-                    historicalDeletes.forEach(m => {
-                        const content = m.content as any;
-                        if (content && content.messageId) {
-                            newHiddenIds.add(content.messageId);
+                        setHiddenMessageIds(prev => {
+                            let changed = false;
+                            const next = new Set(prev);
+                            for (const id of newHiddenIds) {
+                                if (!next.has(id)) {
+                                    next.add(id);
+                                    changed = true;
+                                }
+                            }
+                            if (changed) {
+                                localStorage.setItem(`hidden-messages-${clientInboxId}`, JSON.stringify(Array.from(next)));
+                                return next;
+                            }
+                            return prev;
+                        });
+                    }
+
+                    // Process historical profiles (latest wins)
+                    const historicalProfiles = newMessages.filter(m =>
+                        m.contentType.typeId === "profile" && m.contentType.authorityId === "xmtp.org"
+                    );
+
+                    if (historicalProfiles.length > 0) {
+                        historicalProfiles.forEach(m => {
+                            const profileContent = m.content as any;
+                            const validProfile = {
+                                displayName: profileContent.displayName || "",
+                                avatarUrl: profileContent.avatarUrl || ""
+                            };
+                            try {
+                                localStorage.setItem(`profile-${m.senderInboxId}`, JSON.stringify(validProfile));
+                            } catch (e) {
+                                console.error("Failed to save peer profile history", e);
+                            }
+                        });
+                        window.dispatchEvent(new CustomEvent('profile-updated')); // refresh any listening hooks
+                    }
+
+
+                    const visibleMessages = newMessages.filter(m =>
+                        !(m.contentType.typeId === "delete" && m.contentType.authorityId === "xmtp.org") &&
+                        !(m.contentType.typeId === "profile" && m.contentType.authorityId === "xmtp.org")
+                    );
+
+                    setMessages((prev) => {
+                        // Prevent unnecessary re-renders by checking if messages actually changed
+                        if (prev.length === visibleMessages.length &&
+                            prev[prev.length - 1]?.id === visibleMessages[visibleMessages.length - 1]?.id) {
+                            return prev;
                         }
+                        return visibleMessages;
                     });
+                };
 
-                    // Sync with local storage
-                    setHiddenMessageIds(prev => {
-                        const next = new Set([...prev, ...newHiddenIds]);
-                        localStorage.setItem(`hidden-messages-${clientInboxId}`, JSON.stringify(Array.from(next)));
-                        return next;
-                    });
-                }
+                const initialMessages = await fetchMessages(conversation);
+                processAndSetMessages(initialMessages);
 
-                // Filter out delete command messages so they don't show up in UI
-                const visibleMessages = initialMessages.filter(m =>
-                    !(m.contentType.typeId === "delete" && m.contentType.authorityId === "xmtp.org")
-                );
-
-                setMessages(visibleMessages);
-
-                // Initial scroll is handled by the messages effect, but we might want instant for load
-                // We'll let the effect handle it for now as "smooth" is also acceptable, 
-                // or we can force it if we want.
+                // Polling fallback to catch messages synced from other devices
+                pollInterval = setInterval(async () => {
+                    try {
+                        const polledMessages = await fetchMessages(conversation);
+                        processAndSetMessages(polledMessages);
+                    } catch (e) {
+                        // silently ignore poll errors
+                    }
+                }, 3000);
 
                 cleanup = await streamMessages(conversation, (message) => {
                     // Check for Delete Content Type
                     if (message.contentType.typeId === "delete" && message.contentType.authorityId === "xmtp.org") {
-                        const deleteContent = message.content as any; // Typed as any because stream yields generic
+                        const deleteContent = message.content as any;
                         setHiddenMessageIds(prev => {
                             const next = new Set(prev);
                             next.add(deleteContent.messageId);
-                            // We don't persist automatically here? Or maybe we should.
-                            // Ideally we sync this.
                             localStorage.setItem(`hidden-messages-${clientInboxId}`, JSON.stringify(Array.from(next)));
                             return next;
                         });
-                        return; // Don't add the delete request message itself to the list (or we could filter it)
+                        return;
                     }
 
-                    // Only append if not already in list (dedupe by ID if possible, but minimal check here)
+                    // Check for Profile Content Type
+                    if (message.contentType.typeId === "profile" && message.contentType.authorityId === "xmtp.org") {
+                        const profileContent = message.content as any;
+                        const validProfile = {
+                            displayName: profileContent.displayName || "",
+                            avatarUrl: profileContent.avatarUrl || ""
+                        };
+                        try {
+                            localStorage.setItem(`profile-${message.senderInboxId}`, JSON.stringify(validProfile));
+                            // Optional: dispatch a custom event if we want components to instantly rerender when someone's profile changes mid-chat
+                            window.dispatchEvent(new CustomEvent('profile-updated', { detail: { inboxId: message.senderInboxId } }));
+                        } catch (e) {
+                            console.error("Failed to save peer profile", e);
+                        }
+                        return; // Don't add internal profile update messages to the visual chat list
+                    }
+
+                    // Only append if not already in list
                     setMessages((prev) => {
                         if (prev.find(m => m.id === message.id)) return prev;
                         return [...prev, message];
@@ -188,8 +250,9 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
 
         return () => {
             if (cleanup) cleanup();
+            if (pollInterval) clearInterval(pollInterval);
         };
-    }, [conversation.id]); // Re-run when conversation ID changes
+    }, [conversation.id, clientInboxId]); // Re-run when conversation ID changes
 
     const handleSendMessage = async (content: string | File) => {
         setIsSending(true);
@@ -218,8 +281,12 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                             <ArrowLeft className="w-5 h-5" />
                         </button>
                     )}
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-zinc-800 border border-zinc-700">
-                        {isTitleLoading ? "?" : title.slice(0, 2).toUpperCase()}
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-zinc-800 border border-zinc-700 overflow-hidden shrink-0">
+                        {avatarSeed?.startsWith("http") ? (
+                            <img src={avatarSeed} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                            isTitleLoading ? "?" : title.slice(0, 2).toUpperCase()
+                        )}
                     </div>
                     <div>
                         <h3 className="font-semibold text-white tracking-tight">

@@ -104,9 +104,8 @@ export default function Home() {
               </h1>
 
               {/* Subtitle */}
-              <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto font-medium leading-relaxed animate-float-up-delay-2">
-                The decentralized messaging layer for the sovereign web.
-                <span className="block text-foreground/80 mt-2">Built on XMTP. Secured by Ethereum. Owned by You.</span>
+              <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto font-medium leading-10 animate-float-up-delay-2">
+                The decentralized messaging layer for the sovereign web. <span className="text-white">Built</span> on XMTP. <span className="text-white">Secured</span> by Ethereum. <span className="text-white">Owned</span> by You.
               </p>
             </div>
 

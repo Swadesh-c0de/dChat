@@ -1,5 +1,7 @@
 import { useState, KeyboardEvent, useRef } from "react";
-import { Send, Loader2, Paperclip, X } from "lucide-react";
+import { Send, Loader2, Paperclip, X, Smile } from "lucide-react";
+import EmojiPicker, { Theme, EmojiClickData } from "emoji-picker-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface MessageInputProps {
     onSendMessage: (content: string | File) => Promise<void>;
@@ -10,6 +12,12 @@ export const MessageInput = ({ onSendMessage, isLoading }: MessageInputProps) =>
     const [content, setContent] = useState("");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const onEmojiClick = (emojiData: EmojiClickData) => {
+        setContent((prev) => prev + emojiData.emoji);
+        inputRef.current?.focus();
+    };
 
     const handleSend = async () => {
         if ((!content.trim() && !selectedFile) || isLoading) return;
@@ -65,6 +73,30 @@ export const MessageInput = ({ onSendMessage, isLoading }: MessageInputProps) =>
                 >
                     <Paperclip className="w-5 h-5" />
                 </button>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <button
+                            disabled={isLoading}
+                            className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-full transition-colors"
+                        >
+                            <Smile className="w-5 h-5" />
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                        side="top"
+                        align="start"
+                        sideOffset={16}
+                        className="p-0 border-none bg-transparent shadow-none w-auto"
+                    >
+                        <EmojiPicker
+                            theme={Theme.DARK}
+                            onEmojiClick={onEmojiClick}
+                            lazyLoadEmojis={true}
+                            skinTonesDisabled
+                            searchDisabled={false}
+                        />
+                    </PopoverContent>
+                </Popover>
                 <input
                     type="file"
                     ref={fileInputRef}
@@ -74,6 +106,7 @@ export const MessageInput = ({ onSendMessage, isLoading }: MessageInputProps) =>
                 <div className="flex-1 relative">
                     <input
                         type="text"
+                        ref={inputRef}
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
                         onKeyDown={handleKeyDown}

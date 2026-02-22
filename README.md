@@ -40,8 +40,10 @@
 ## ✨ Key Features
 
 - 🔐 **Wallet-to-Wallet**: Instant messaging between any Ethereum-compatible addresses.
-- 🛡️ **End-to-End Encryption**: Military-grade security powered by XMTP V3 (MLS protocol).
+- � **Decentralized Profiles**: Set an avatar and display name that syncs across the XMTP network.
+- �🛡️ **End-to-End Encryption**: Military-grade security powered by XMTP V3 (MLS protocol).
 - 📁 **Private File Sharing**: Secure attachments (Images, PDF, etc.) via encrypted IPFS uploads.
+- 😄 **Emoji Keyboard**: Quickly insert emojis into your chats with an integrated picker.
 - ⚡ **Real-time Sync**: Seamless message streaming and instant notifications across devices.
 - 🌘 **Cinematic UI**: A premium dark-mode aesthetic with noise-overlays and fluid animations.
 - 📱 **Responsive Design**: Fully optimized for Desktop, Tablet, and Mobile screens.

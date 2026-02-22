@@ -21,15 +21,18 @@ export const useConversationDisplay = (conversation: ChatConversation): Conversa
 
         const resolve = async () => {
             try {
-                let title = conversation.id;
+                let title = "";
                 let description = "Chat";
-                let avatarSeed = conversation.id;
+                let avatarSeed = "";
+                let profileAvatar = "";
+                let peerTargetId = conversation.id;
 
                 // Check for DM (peerInboxId method)
                 if ('peerInboxId' in conversation && typeof (conversation as any).peerInboxId === 'function') {
                     const dm = conversation as any;
                     try {
                         const peerInboxId = await dm.peerInboxId();
+                        peerTargetId = peerInboxId;
                         title = peerInboxId.slice(0, 6) + "..." + peerInboxId.slice(-4);
                         description = "Direct Message";
                         avatarSeed = peerInboxId;
@@ -41,26 +44,33 @@ export const useConversationDisplay = (conversation: ChatConversation): Conversa
                 // Check for Group (groupName method or property)
                 else if ('groupName' in conversation) {
                     const group = conversation as any;
-                    // groupName might be a method or property depending on SDK version?
-                    // Dm.ts had helpers. Group.ts likely similar.
-                    // Assuming property access or sync method?
-                    // Usually V3 accessors are async if fetching from DB, but some might be cached.
-                    // Let's assume usage: await group.groupName() or group.groupName
-                    // Checking bindings... likely async.
                     if (typeof group.groupName === 'function') {
                         title = await group.groupName();
                     } else {
                         title = group.groupName;
                     }
                     description = "Group Chat";
+                    peerTargetId = group.id;
                     avatarSeed = group.id;
+                }
+
+                // CHECK LOCAL PROFILE
+                try {
+                    const rawProfile = localStorage.getItem(`profile-${peerTargetId}`);
+                    if (rawProfile) {
+                        const profile = JSON.parse(rawProfile);
+                        if (profile.displayName) title = profile.displayName;
+                        if (profile.avatarUrl) profileAvatar = profile.avatarUrl;
+                    }
+                } catch (e) {
+                    console.error("Failed to parse local profile", e);
                 }
 
                 if (isMounted) {
                     setDisplay({
                         title,
                         description,
-                        avatarSeed,
+                        avatarSeed: profileAvatar || avatarSeed, // Reusing avatarSeed conceptually, but now it can hold a URL 
                         isLoading: false
                     });
                 }
@@ -74,8 +84,13 @@ export const useConversationDisplay = (conversation: ChatConversation): Conversa
 
         resolve();
 
+        // Listen for real-time profile updates
+        const onProfileUpdated = () => resolve();
+        window.addEventListener('profile-updated', onProfileUpdated);
+
         return () => {
             isMounted = false;
+            window.removeEventListener('profile-updated', onProfileUpdated);
         };
     }, [conversation.id]);
 

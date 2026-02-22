@@ -4,6 +4,7 @@ import type { WalletClient } from "viem";
 import { hexToBytes } from "viem";
 import { AttachmentCodec, RemoteAttachmentCodec } from "@xmtp/content-type-remote-attachment";
 import { DeleteCodec } from "./codecs/DeleteCodec";
+import { ProfileCodec } from "./codecs/ProfileCodec";
 
 let clientInstance: Client<any> | null = null;
 
@@ -70,7 +71,7 @@ export const createXmtpClient = async ({
         // ... inside createXmtpClient ...
         const client = await Client.create(signer, {
             env,
-            codecs: [new AttachmentCodec(), new RemoteAttachmentCodec(), new DeleteCodec()],
+            codecs: [new AttachmentCodec(), new RemoteAttachmentCodec(), new DeleteCodec(), new ProfileCodec()],
         });
 
         // Monkey patch address for session management in UI

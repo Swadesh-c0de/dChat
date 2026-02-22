@@ -52,7 +52,7 @@ export function Navbar() {
                         alt="dChat Logo"
                         width={36}
                         height={36}
-                        className="ml-4 rounded-full scale-200"
+                        className="ml-2 rounded-full scale-200"
                         priority
                     />
                     <span className={cn(
@@ -73,6 +73,16 @@ export function Navbar() {
                             key={link.label}
                             href={link.href}
                             {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                            onClick={(e) => {
+                                if (link.href.startsWith('#')) {
+                                    e.preventDefault();
+                                    const element = document.querySelector(link.href);
+                                    if (element) {
+                                        element.scrollIntoView({ behavior: 'smooth' });
+                                        window.history.pushState(null, '', link.href);
+                                    }
+                                }
+                            }}
                             className="hover:text-white transition-colors duration-200 relative group py-1"
                         >
                             {link.label}

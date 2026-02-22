@@ -14,6 +14,10 @@ interface ChatSidebarProps {
     refreshTrigger?: number;
 }
 
+import { ProfileModal } from "./ProfileModal";
+import { sendProfileUpdateMessage } from "@/lib/xmtp/messages";
+import { Settings } from "lucide-react";
+
 export const ChatSidebar = ({
     client,
     onSelectConversation,
@@ -23,6 +27,53 @@ export const ChatSidebar = ({
 }: ChatSidebarProps) => {
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+    // Load local profile
+    const getLocalProfile = useCallback(() => {
+        try {
+            const raw = localStorage.getItem(`profile-${client.inboxId}`);
+            if (raw) return JSON.parse(raw);
+        } catch { }
+        return { displayName: "", avatarUrl: "" };
+    }, [client.inboxId]);
+
+    const [localProfile, setLocalProfile] = useState<{ displayName: string, avatarUrl: string }>(getLocalProfile());
+
+    useEffect(() => {
+        setLocalProfile(getLocalProfile());
+
+        const onProfileUpdate = () => {
+            setLocalProfile(getLocalProfile());
+        };
+
+        window.addEventListener('profile-updated', onProfileUpdate);
+        return () => window.removeEventListener('profile-updated', onProfileUpdate);
+    }, [getLocalProfile]);
+
+    const { displayName, avatarUrl } = localProfile;
+
+    const handleSaveProfile = async (newName: string, newAvatar: string) => {
+        const profile = { displayName: newName, avatarUrl: newAvatar };
+        // Save locally
+        localStorage.setItem(`profile-${client.inboxId}`, JSON.stringify(profile));
+
+        // Broadcast to native conversations
+        const activeConvs = conversations;
+
+        let broadcastCount = 0;
+        await Promise.all(activeConvs.map(async (conv) => {
+            try {
+                await sendProfileUpdateMessage(conv, newName, newAvatar);
+                broadcastCount++;
+            } catch (e) {
+                console.warn(`Failed to broadcast profile to ${conv.id}`, e);
+            }
+        }));
+
+        console.log(`Broadcasted profile update to ${broadcastCount} conversations`);
+    };
+
     const isMounted = useRef(true);
 
     // Get the permanent blocklist of deleted conversation IDs
@@ -133,13 +184,8 @@ export const ChatSidebar = ({
             }
         };
 
-        // ─── ALL-MESSAGES STREAM ───────────────────────────────────────────────────
-        // THE KEY FIX: consentStates includes Unknown so messages from brand-new
-        // unknown senders are included. Without this, the SDK defaults to
-        // Allowed-only and silently ignores all new inbound DMs.
-        //
-        // When this fires, the XMTP stream has already materialized the conversation
-        // in the local DB — so we only need list() (no sync() required here).
+        // ALL-MESSAGES STREAM
+        // ConsentState.Unknown includes brand-new inbound DMs
         const doMsgStream = async () => {
             try {
                 const msgStream = await client.conversations.streamAllMessages({
@@ -151,8 +197,23 @@ export const ChatSidebar = ({
                     try {
                         for await (const message of msgStream) {
                             if (!isStreaming || !isMounted.current) break;
-                            // Stream already processed the welcome → conversation is in local DB.
-                            // Just list() to refresh sidebar — no need to sync() again.
+
+                            // Process global Profile Updates secretly
+                            if (message.contentType?.typeId === "profile" && message.contentType?.authorityId === "xmtp.org") {
+                                const profileContent = message.content as any;
+                                const validProfile = {
+                                    displayName: profileContent?.displayName || "",
+                                    avatarUrl: profileContent?.avatarUrl || ""
+                                };
+                                try {
+                                    localStorage.setItem(`profile-${message.senderInboxId}`, JSON.stringify(validProfile));
+                                    window.dispatchEvent(new CustomEvent('profile-updated', { detail: { inboxId: message.senderInboxId } }));
+                                } catch (e) {
+                                    console.error("Failed to save peer profile globally", e);
+                                }
+                            }
+
+                            // Refresh sidebar immediately 
                             await listAndSetConversations();
                         }
                     } catch (e) {
@@ -229,13 +290,32 @@ export const ChatSidebar = ({
 
             <div className="p-4 border-t border-zinc-900 bg-black/50 backdrop-blur-xl flex justify-between items-center">
                 <div className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase tracking-wider font-semibold px-1">
-                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
+                    {avatarUrl ? (
+                        <img src={avatarUrl} alt="Avatar" className="w-6 h-6 rounded-full border border-zinc-700 object-cover" />
+                    ) : (
+                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.4)]"></div>
+                    )}
                     <span className="font-mono">
-                        {client.inboxId ? (client.inboxId.slice(0, 8).toUpperCase() + "..." + client.inboxId.slice(-4).toUpperCase()) : "Unknown"}
+                        {displayName || (client.inboxId ? (client.inboxId.slice(0, 8).toUpperCase() + "..." + client.inboxId.slice(-4).toUpperCase()) : "Unknown")}
                     </span>
+                    <button
+                        onClick={() => setIsProfileModalOpen(true)}
+                        className="ml-2 p-1.5 text-zinc-500 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
+                        title="Edit Profile"
+                    >
+                        <Settings className="w-3.5 h-3.5" />
+                    </button>
                 </div>
                 <img src="/dChat.svg" alt="dChat" className="h-8 mr-4 w-auto opacity-80 hover:opacity-100 transition-opacity scale-[2.5]" />
             </div>
+
+            <ProfileModal
+                isOpen={isProfileModalOpen}
+                onClose={() => setIsProfileModalOpen(false)}
+                currentDisplayName={displayName}
+                currentAvatarUrl={avatarUrl}
+                onSaveProfile={handleSaveProfile}
+            />
         </div>
     );
 };

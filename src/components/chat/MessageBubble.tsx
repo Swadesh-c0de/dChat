@@ -93,11 +93,16 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
                 >
                     {displayAttachment ? (
                         imageUrl ? (
-                            <div className="relative group/image">
+                            <div className="relative group/image overflow-hidden rounded-xl min-w-[200px]">
                                 <img
                                     src={imageUrl}
                                     alt={displayAttachment.filename}
-                                    className="rounded-xl max-h-[300px] w-auto object-cover"
+                                    style={{
+                                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23cccccc' fill-opacity='0.4' fill-rule='evenodd'%3E%3Cpath d='M0 0h10v10H0zm10 10h10v10H10z'/%3E%3C/g%3E%3C/svg%3E")`,
+                                        backgroundSize: '20px 20px',
+                                        backgroundColor: 'white'
+                                    }}
+                                    className="block w-full max-w-[400px] max-h-[300px] object-contain mx-auto"
                                     onLoad={onImageLoad}
                                 />
                                 <button
@@ -109,17 +114,17 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
                                 </button>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-3 p-2">
-                                <div className="p-2 bg-zinc-700/50 rounded-lg">
-                                    <FileIcon className="w-5 h-5 text-zinc-400" />
+                            <div className={`flex items-center gap-3 p-2 rounded-xl border ${isMe ? 'border-zinc-200 bg-black/5' : 'border-zinc-700 bg-white/5'}`}>
+                                <div className={`p-2 rounded-lg ${isMe ? 'bg-white shadow-sm' : 'bg-zinc-800 shadow-sm'}`}>
+                                    <FileIcon className={`w-5 h-5 ${isMe ? 'text-zinc-600' : 'text-zinc-400'}`} />
                                 </div>
                                 <div className="flex flex-col overflow-hidden">
-                                    <span className="text-sm font-medium truncate max-w-[150px]">{displayAttachment.filename}</span>
-                                    <span className="text-xs text-zinc-500">{(displayAttachment.data.byteLength / 1024).toFixed(1)} KB</span>
+                                    <span className={`text-sm font-medium truncate max-w-[150px] ${isMe ? 'text-zinc-900' : 'text-zinc-100'}`}>{displayAttachment.filename}</span>
+                                    <span className={`text-xs ${isMe ? 'text-zinc-500' : 'text-zinc-400'}`}>{(displayAttachment.data.byteLength / 1024).toFixed(1)} KB</span>
                                 </div>
                                 <button
                                     onClick={handleDownload}
-                                    className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-700 rounded-full transition-colors ml-2"
+                                    className={`p-1.5 rounded-full transition-colors ml-2 ${isMe ? 'text-zinc-500 hover:text-black hover:bg-zinc-200' : 'text-zinc-400 hover:text-white hover:bg-zinc-700'}`}
                                     title="Download file"
                                 >
                                     <Download className="w-4 h-4" />
@@ -136,7 +141,7 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
                             {error}
                         </div>
                     ) : typeof content === "string" ? (
-                        <p className="px-3 py-1 leading-relaxed text-[15px] break-normal">{content}</p>
+                        <p className="px-3 py-1 leading-relaxed text-[15px] break-all whitespace-pre-wrap max-w-full overflow-hidden">{content}</p>
                     ) : (
                         <p className="px-3 py-1 text-xs italic text-zinc-500">System Message (Unsupported type)</p>
                     )}

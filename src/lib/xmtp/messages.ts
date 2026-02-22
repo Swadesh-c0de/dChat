@@ -148,3 +148,26 @@ export const sendDeleteMessage = async (
         throw e;
     }
 };
+
+import { ProfileCodec, ProfileContent } from "./codecs/ProfileCodec";
+
+export const sendProfileUpdateMessage = async (
+    conversation: ChatConversation,
+    displayName: string,
+    avatarUrl: string
+): Promise<string> => {
+    try {
+        const content: ProfileContent = { displayName, avatarUrl };
+
+        const codec = new ProfileCodec();
+        const encodedContent = codec.encode(content);
+
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        const messageIdResponse = await conversation.send(encodedContent);
+        return messageIdResponse;
+    } catch (e) {
+        console.error("Failed to send profile update message", e);
+        throw e;
+    }
+};

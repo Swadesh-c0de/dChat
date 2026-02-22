@@ -8,6 +8,9 @@
 
 ### Key Features
 - **Wallet-to-Wallet Messaging**: Log in with your Ethereum wallet (MetaMask, Rainbow, etc.).
+- **Decentralized User Profiles**: Set a Display Name and Avatar which are synced automatically to peers over XMTP without a central database.
+- **Message Deletion**: Support for "Delete for Me" and "Delete for Everyone" via custom XMTP deletion payloads.
+- **Emoji Picker**: Fully integrated, fast emoji keyboard to enrich messaging.
 - **End-to-End Encryption**: Messages are encrypted and can only be decrypted by the recipient.
 - **High-End visual Narrative**: Premium dark aesthetic with a custom noise-overlay, cinematic typography, and blockchain-themed components.
 - **Interactive Encryption Visualization**: A custom terminal-style card displaying real-time encryption pipeline steps (handshakes, key rotations, hashing).
@@ -25,13 +28,15 @@
 - **TypeScript**: Full type-safety across protocol and UI layers.
 - **Tailwind CSS 4**: Modern utility-first styling with high-performance `@layer` architecture.
 - **Framer Motion**: Powering the high-end micro-interactions and scroll-triggered revealing sequences.
+- **Shadcn UI & Radix**: Accessible primitive components (Dialogs, Popovers, etc.).
+- **Emoji Picker React**: Robust, high-performance emoji keyboard integration.
 
 ### Web3 & Messaging
 - **@xmtp/browser-sdk (V3)**: The leading protocol for end-to-end encrypted decentralized messaging.
 - **Wagmi & Viem**: Robust hooks for wallet connectivity and low-level blockchain interactions.
 - **RainbowKit**: Premium UI for wallet selection and session management.
 - **Pinata IPFS**: Decentralized file storage provider.
-- **@xmtp/content-type-remote-attachment**: Encrypted file codec for large attachments.
+- **Custom XMTP Codecs**: `ProfileCodec` and `DeleteCodec` for custom app-layer functionality.
 
 ---
 
@@ -56,8 +61,13 @@ src/
 │   │   ├── ChatLayout.tsx          # Main grid layout (Sidebar + Window)
 │   │   ├── ChatSidebar.tsx         # List of active conversations
 │   │   ├── ChatWindow.tsx          # Message view for a specific chat
+│   │   ├── ConversationListItem.tsx# Reusable peer chat list item with Avatar
 │   │   ├── MessageBubble.tsx       # Styled message row with attachment support
-│   │   └── MessageInput.tsx        # Command-center for messaging & attachments
+│   │   ├── MessageInput.tsx        # Command-center for messaging, attachments & emojis
+│   │   └── ProfileModal.tsx        # IPFS-backed Avatar/Name settings menu
+│   ├── ui/                 # Shadcn UI primitives
+│   │   ├── dialog.tsx      # Used for Avatar preview
+│   │   └── popover.tsx     # Used for Emoji Picker
 │   ├── layout/             # Global layout elements
 │   │   └── navbar.tsx      # Adaptive hiding/compacting navigation
 │   └── auth/               # Authentication components
@@ -65,13 +75,16 @@ src/
 │
 ├── lib/
 │   └── xmtp/               # XMTP Logic Isolation
+│       ├── codecs/         # Custom ContentType decoders
+│       │   ├── ProfileCodec.ts # Serializes User Avatars/Names
+│       │   └── DeleteCodec.ts  # Handles "Delete for Everyone" tombstones
 │       ├── client.ts       # Client creation, singleton, revocation logic
 │       ├── conversations.ts # Fetching & listing conversations
 │       └── messages.ts     # Sending, fetching, and streaming messages
 │   └── ipfs.ts             # IPFS Upload Service (Pinata)
 │
 ├── hooks/
-│   └── useConversationDisplay.ts # Hook to resolve peer names/avatars
+│   └── useConversationDisplay.ts # Hook to resolve peer names/avatars via local profiles
 │
 └── types/
     └── chat.ts             # TypeScript definitions for Chat interfaces
@@ -100,14 +113,20 @@ The heart of the messaging experience.
 - **Auto-Scroll**: Uses a `useEffect` hook listening to `messages` array changes to scroll a `div ref` into view.
 - **Streaming**: Subscribes to new messages in real-time using `streamMessages`.
 
-### C. Sidebar (`src/components/chat/ChatSidebar.tsx`)
+### C. Custom XMTP Codecs (`src/lib/xmtp/codecs/`)
+To extend beyond standard text and image messaging, dChat leverages XMTP Custom Content Types:
+- **`ProfileCodec`**: Encodes a `displayName` and `avatarUrl` (IPFS link). When a user updates their profile, a silent message is broadcasted to all active conversations. The global `streamAllMessages` listener intercepts these, saving the profile to `localStorage` and discarding the message from the visible UI, ensuring decentralized profile synchronization.
+- **`DeleteCodec`**: Encodes a `messageId`. When a user chooses "Delete for Everyone", a tombstone payload is broadcasted. Receiving clients intercept this schema and add the original message to a local hidden blocklist.
+
+### D. Sidebar (`src/components/chat/ChatSidebar.tsx`)
 Displays the list of conversations.
 - **Streaming**: Listens for new conversations (e.g., when someone messaging you for the first time).
+- **Global Profile Sync**: Actively listens to `streamAllMessages` in the background strictly to intercept incoming `ProfileCodec` updates globally without needing the specific chat open.
 - **Navigation**: Selecting a chat updates parent state in `ChatLayout`.
-- **Branding**: Includes the `dChat.svg` logo and Inbox ID hash in the footer.
+- **Branding**: Includes the `dChat.svg` logo and Inbox ID hash in the footer, along with the `ProfileModal` trigger.
 
-### D. IPFS & File Sharing (`src/lib/ipfs.ts`)
-- **Storage**: Uses **Pinata IPFS** for decentralized storage.
+### E. IPFS & File Sharing (`src/lib/ipfs.ts`)
+- **Storage**: Uses **Pinata IPFS** for decentralized storage (Avatars and File Attachments).
 - **Encryption**: Files are encrypted using XMTP's `RemoteAttachmentCodec` before upload.
 - **Flow**:
     1.  User selects file -> `MessageInput` (paperclip).
