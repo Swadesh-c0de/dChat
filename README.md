@@ -1,7 +1,11 @@
 # dChat
 
 <div align="center">
-  <img src="./public/dChat.svg" alt="dChat Banner" width="100%">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./public/dChat-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./public/dChat-light.svg">
+    <img src="./public/dChat-light.svg" alt="dChat Logo" width="100%">
+  </picture>
   <br />
   
   <h3>Secure. Decentralized. Privacy-First Messaging.</h3>

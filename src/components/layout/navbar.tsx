@@ -48,7 +48,7 @@ export function Navbar() {
                     onClick={() => router.push('/')}
                 >
                     <Image
-                        src="/dChat.svg"
+                        src="/dChat-dark.svg"
                         alt="dChat Logo"
                         width={36}
                         height={36}

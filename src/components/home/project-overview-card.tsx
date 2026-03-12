@@ -1,23 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import {
-    Cpu,
-    Database,
-    Network,
-    Code2,
-    Terminal,
-    FileCode,
-    Activity,
-    Layers,
-    Shield,
-    Zap,
-    Lock,
-    Box,
-    Server,
-    Workflow,
-    Search
-} from 'lucide-react';
+import { Cpu, Database, Network, Code2, Terminal, FileCode, Activity, Layers, Shield, Zap, Lock } from 'lucide-react';
 
 export function ProjectOverviewCard() {
     return (

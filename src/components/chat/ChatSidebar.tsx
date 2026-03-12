@@ -306,7 +306,7 @@ export const ChatSidebar = ({
                         <Settings className="w-3.5 h-3.5" />
                     </button>
                 </div>
-                <img src="/dChat.svg" alt="dChat" className="h-8 mr-4 w-auto opacity-80 hover:opacity-100 transition-opacity scale-[2.5]" />
+                <img src="/dChat-dark.svg" alt="dChat" className="h-8 mr-4 w-auto opacity-80 hover:opacity-100 transition-opacity scale-[2.5]" />
             </div>
 
             <ProfileModal

@@ -93,7 +93,7 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
                 >
                     {displayAttachment ? (
                         imageUrl ? (
-                            <div className="relative group/image overflow-hidden rounded-xl min-w-[200px]">
+                            <div className="relative group/image overflow-hidden rounded-xl min-w-50">
                                 <img
                                     src={imageUrl}
                                     alt={displayAttachment.filename}
@@ -102,7 +102,7 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
                                         backgroundSize: '20px 20px',
                                         backgroundColor: 'white'
                                     }}
-                                    className="block w-full max-w-[400px] max-h-[300px] object-contain mx-auto"
+                                    className="block w-full max-w-100 max-h-75 object-contain mx-auto"
                                     onLoad={onImageLoad}
                                 />
                                 <button
@@ -119,7 +119,7 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
                                     <FileIcon className={`w-5 h-5 ${isMe ? 'text-zinc-600' : 'text-zinc-400'}`} />
                                 </div>
                                 <div className="flex flex-col overflow-hidden">
-                                    <span className={`text-sm font-medium truncate max-w-[150px] ${isMe ? 'text-zinc-900' : 'text-zinc-100'}`}>{displayAttachment.filename}</span>
+                                    <span className={`text-sm font-medium truncate max-w-37.5 ${isMe ? 'text-zinc-900' : 'text-zinc-100'}`}>{displayAttachment.filename}</span>
                                     <span className={`text-xs ${isMe ? 'text-zinc-500' : 'text-zinc-400'}`}>{(displayAttachment.data.byteLength / 1024).toFixed(1)} KB</span>
                                 </div>
                                 <button
@@ -141,7 +141,7 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
                             {error}
                         </div>
                     ) : typeof content === "string" ? (
-                        <p className="px-3 py-1 leading-relaxed text-[15px] break-all whitespace-pre-wrap max-w-full overflow-hidden">{content}</p>
+                        <p className="px-3 py-1 leading-relaxed text-[15px] break-normal whitespace-pre-wrap max-w-full overflow-hidden">{content}</p>
                     ) : (
                         <p className="px-3 py-1 text-xs italic text-zinc-500">System Message (Unsupported type)</p>
                     )}
