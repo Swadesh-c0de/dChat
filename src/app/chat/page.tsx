@@ -17,8 +17,29 @@ export default function ChatPage() {
     const [revocationRequired, setRevocationRequired] = useState(false);
     const [revocationInboxId, setRevocationInboxId] = useState<string | null>(null);
     const [isRevoking, setIsRevoking] = useState(false);
+    const [isRepairing, setIsRepairing] = useState(false);
 
     const initRef = useRef(false);
+
+    const handleFatalError = (e: any) => {
+        console.error("Fatal XMTP Error caught in ChatPage", e);
+        setError(`Secure connection corrupted (MLS Error). This device's local chat history needs to be repaired. No messages will be lost on the network.`);
+    };
+
+    const handleRepair = async () => {
+        setIsRepairing(true);
+        try {
+            const { wipeLocalXmtpData, disconnectXmtpClient } = await import("@/lib/xmtp/client");
+            if (disconnectXmtpClient) disconnectXmtpClient();
+            await wipeLocalXmtpData();
+            // Force reload to start fresh
+            window.location.reload();
+        } catch (e: any) {
+            console.error("Repair failed", e);
+            setError("Failed to repair session: " + e.message);
+            setIsRepairing(false);
+        }
+    };
 
     useEffect(() => {
         // Reset if wallet disconnects
@@ -52,7 +73,7 @@ export default function ChatPage() {
             try {
                 const xmtp = await createXmtpClient({
                     walletClient,
-                    env: "dev", // Default to dev for now, or env var
+                    env: (process.env.NEXT_PUBLIC_XMTP_ENV as any) || "production",
                 });
                 setClient(xmtp);
             } catch (e: any) {
@@ -74,6 +95,11 @@ export default function ChatPage() {
                         setRevocationRequired(true);
                     }
                 }
+
+                // Also check for cryptographic errors during init
+                if (errorMessage.includes("SecretReuseError") || errorMessage.includes("GenerationOutOfBound")) {
+                    handleFatalError(e);
+                }
             } finally {
                 setIsInitializing(false);
                 initRef.current = false;
@@ -90,7 +116,8 @@ export default function ChatPage() {
         setIsRevoking(true);
         try {
             const { revokeOtherInstallations } = await import("@/lib/xmtp/client");
-            await revokeOtherInstallations(walletClient, revocationInboxId, "dev");
+            const xmtpEnv = (process.env.NEXT_PUBLIC_XMTP_ENV as any) || "production";
+            await revokeOtherInstallations(walletClient, revocationInboxId, xmtpEnv);
             // After revocation, reset state to trigger re-init
             // Do NOT reset state here, as it triggers init() which conflicts with the DB lock
             // setError(null);
@@ -117,7 +144,7 @@ export default function ChatPage() {
                 <div className="text-center space-y-6 max-w-md animate-in fade-in duration-500 relative z-10">
                     <div className="bg-zinc-900/50 p-8 rounded-3xl border border-zinc-800/50 backdrop-blur-sm">
                         <div className="w-auto h-auto mx-auto mb-6 flex items-center justify-center">
-                            <img src="/dChat.svg" alt="dChat" className="h-32 w-auto bg-transparent opacity-90 hover:opacity-100 transition-opacity scale-125" />
+                            <img src="/dChat-dark.svg" alt="dChat" className="h-32 w-auto bg-transparent opacity-90 hover:opacity-100 transition-opacity scale-125" />
                         </div>
                         <h1 className="text-2xl font-bold text-white mb-3 tracking-tight">Connect to dChat</h1>
                         <p className="text-zinc-400 mb-8 leading-relaxed">Secure, wallet-to-wallet messaging. <br />Connect your wallet to get started.</p>
@@ -147,6 +174,8 @@ export default function ChatPage() {
     }
 
     if (error) {
+        const isMlsError = error.includes("MLS Error") || error.includes("SecretReuseError") || error.includes("corrupted");
+
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white">
                 <div className="p-8 bg-zinc-900 rounded-2xl shadow-sm border border-zinc-800 text-center max-w-md">
@@ -177,6 +206,21 @@ export default function ChatPage() {
                                 )}
                             </button>
                         </div>
+                    ) : isMlsError ? (
+                        <button
+                            onClick={handleRepair}
+                            disabled={isRepairing}
+                            className="w-full px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors font-medium text-sm flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(217,119,6,0.2)]"
+                        >
+                            {isRepairing ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Repairing Account...
+                                </>
+                            ) : (
+                                "Repair Secure Connection"
+                            )}
+                        </button>
                     ) : (
                         <button
                             onClick={() => window.location.reload()}
@@ -196,7 +240,7 @@ export default function ChatPage() {
 
     return (
         <div className="flex flex-col h-screen bg-black">
-            <ChatLayout client={client} />
+            <ChatLayout client={client} onFatalError={handleFatalError} />
         </div>
     );
 }

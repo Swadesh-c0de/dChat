@@ -7,15 +7,16 @@ import { ContentTypeDelete, DeleteCodec } from "./codecs/DeleteCodec";
 export const fetchMessages = async (conversation: ChatConversation): Promise<ChatMessage[]> => {
     try {
         // Double check activity status
-        const active = await (conversation as any).isActive();
-        if (!active) {
-            console.warn("Conversation is inactive, syncing before fetching messages...");
+        // Sync the conversation from the network to fetch the latest messages (or recovered history).
+        // This is necessary after a storage wipe or when being newly added to a group.
+        try {
+            await conversation.sync();
+        } catch (e) {
+            console.warn(`Sync failed for conversation ${conversation.id}, fetching local messages:`, e);
         }
-
-        // Sync the conversation from the network first to get the latest messages.
-        // This is critical for User2 to see User1's messages without needing a manual refresh.
-        await conversation.sync();
+        
         const messages = await conversation.messages();
+        console.log(`Fetched ${messages.length} messages for conversation ${conversation.id}`);
         return messages;
     } catch (e) {
         console.error("Failed to fetch messages", e);

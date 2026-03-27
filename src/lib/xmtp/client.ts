@@ -42,7 +42,6 @@ export const createXmtpClient = async ({
     checkBrowserCompatibility();
 
     if (clientInstance) {
-        console.log("Returning existing XMTP client instance");
         return clientInstance as ChatClient;
     }
 
@@ -68,16 +67,15 @@ export const createXmtpClient = async ({
     try {
         console.log("Initializing XMTP V3 Client...");
 
-        // ... inside createXmtpClient ...
+        // Use any for options as a workaround for the Omit union vs literal property type conflict in v7 types
         const client = await Client.create(signer, {
-            env,
+            env: env as any,
             codecs: [new AttachmentCodec(), new RemoteAttachmentCodec(), new DeleteCodec(), new ProfileCodec()],
-        });
+        } as any);
 
         // Monkey patch address for session management in UI
         (client as any).address = walletClient.account.address;
 
-        console.log("XMTP V3 Client Initialized", (client as any).address);
         clientInstance = client;
         return client as ChatClient;
     } catch (error) {
@@ -95,7 +93,11 @@ export const disconnectXmtpClient = () => {
     clientInstance = null;
 };
 
-export const revokeOtherInstallations = async (walletClient: WalletClient, inboxId: string, env: XmtpEnv = "dev") => {
+export const revokeOtherInstallations = async (
+    walletClient: WalletClient, 
+    inboxId: string, 
+    env: XmtpEnv = (process.env.NEXT_PUBLIC_XMTP_ENV as any) || "production"
+) => {
     if (!walletClient.account) throw new Error("Wallet not connected");
 
     const signer = {
@@ -150,8 +152,6 @@ export const revokeOtherInstallations = async (walletClient: WalletClient, inbox
         // 3. Revoke using static method
         await (Client as any).revokeInstallations(signer, inboxId, installationIds, env);
 
-        console.log("Revocation successful. Verifying state...");
-
         // 4. Verify revocation (polling)
         let retries = 5;
         while (retries > 0) {
@@ -175,6 +175,40 @@ export const revokeOtherInstallations = async (walletClient: WalletClient, inbox
     } catch (error) {
         console.error("Failed to revoke installations:", error);
         throw error;
+    }
+};
+
+/**
+ * Wipes all local XMTP data from the browser's Origin Private File System (OPFS).
+ * This is a "hard reset" for the XMTP V3 client on the current device.
+ */
+export const wipeLocalXmtpData = async () => {
+    try {
+        console.log("Wiping local XMTP storage (OPFS)...");
+        // Get the root of the OPFS
+        const root = await navigator.storage.getDirectory();
+        
+        // XMTP v3 usually stores data in a directory or file within OPFS
+        // To be safe and thorough, we clear the entire directory.
+        // We iterate and remove all entries.
+        for await (const name of (root as any).keys()) {
+            await root.removeEntry(name, { recursive: true });
+        }
+        
+        console.log("Local XMTP storage wiped successfully.");
+        return true;
+    } catch (error) {
+        console.error("Failed to wipe local XMTP storage:", error);
+        // Fallback: try clearing indexedDB if any was used (though V3 is primarily OPFS)
+        try {
+            const dbs = await window.indexedDB.databases();
+            dbs.forEach(db => {
+                if (db.name?.includes("xmtp")) {
+                    window.indexedDB.deleteDatabase(db.name);
+                }
+            });
+        } catch (e) { /* ignore fallback errors */ }
+        return false;
     }
 };
 

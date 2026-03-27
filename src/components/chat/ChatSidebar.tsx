@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Client, ConsentState } from "@xmtp/browser-sdk";
 import { ChatConversation } from "@/types/chat";
 import { listConversations } from "@/lib/xmtp/conversations";
-import { Plus, MessageSquare } from "lucide-react";
+import { Plus, MessageSquare, RefreshCw } from "lucide-react";
 import { ConversationListItem } from "./ConversationListItem";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
@@ -12,6 +12,7 @@ interface ChatSidebarProps {
     selectedConversation?: ChatConversation;
     onNewChat: () => void;
     refreshTrigger?: number;
+    onFatalError?: (error: any) => void;
 }
 
 import { ProfileModal } from "./ProfileModal";
@@ -24,9 +25,11 @@ export const ChatSidebar = ({
     selectedConversation,
     onNewChat,
     refreshTrigger = 0,
+    onFatalError,
 }: ChatSidebarProps) => {
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
     const [loading, setLoading] = useState(true);
+    const [syncStatus, setSyncStatus] = useState<string>("Initializing...");
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
     // Load local profile
@@ -115,37 +118,52 @@ export const ChatSidebar = ({
         }
     }, [client, listAndSetConversations]);
 
+    // ─── INITIAL LOAD ──────────────────────────────────────────────────────────
+    const doInitialLoad = useCallback(async () => {
+        try {
+            if (isMounted.current) {
+                setLoading(true);
+                setSyncStatus("Checking Network...");
+            }
+
+            // Use the more thorough syncAll() for the very first load
+            // to ensure we catch everything (new welcomes + sync server history)
+            // In v7, syncAll() is the primary way to recover account history
+            if (isMounted.current) setSyncStatus("Recovering History...");
+            await client.conversations.syncAll();
+            
+            // Explicitly sync conversations manager to materialize any newly discovered groups 
+            // after syncAll() has finished pulling metadata and welcomes.
+            if (isMounted.current) setSyncStatus("Discovering Chats...");
+            await client.conversations.sync();
+
+            if (isMounted.current) setSyncStatus("Finalizing...");
+            await listAndSetConversations();
+        } catch (e: any) {
+            console.error("Failed initial load", e);
+            
+            // Check for fatal cryptographic errors that require session repair
+            if (e.message?.includes("SecretReuseError") || e.message?.includes("GenerationOutOfBound")) {
+                if (onFatalError) onFatalError(e);
+                return;
+            }
+
+            if (isMounted.current) setSyncStatus("Sync failed, retrying...");
+            // Fallback to refreshConversations if syncAll fails
+            await refreshConversations();
+        } finally {
+            if (isMounted.current) {
+                setLoading(false);
+                setSyncStatus("");
+            }
+        }
+    }, [client, listAndSetConversations, refreshConversations, onFatalError]);
+
     useEffect(() => {
         isMounted.current = true;
         let convStreamCleanup: (() => void) | undefined;
         let msgStreamCleanup: (() => void) | undefined;
         let pollInterval: ReturnType<typeof setInterval> | undefined;
-
-        // ─── INITIAL LOAD ──────────────────────────────────────────────────────────
-        const doInitialLoad = async () => {
-            try {
-                // Use the more thorough syncAll() for the very first load
-                // to ensure we catch everything (new welcomes + sync server history)
-                await client.conversations.syncAll();
-                await listAndSetConversations();
-            } catch (e) {
-                console.error("Failed initial load", e);
-                // Fallback to refreshConversations if syncAll fails
-                await refreshConversations();
-            } finally {
-                if (isMounted.current) setLoading(false);
-            }
-        };
-
-        // ─── POLLING (every 3 seconds) ─────────────────────────────────────────────
-        // Calls sync() + list() as a fallback to catch anything the stream misses.
-        // Runs independently — no lock, so it never blocks the stream callback.
-        pollInterval = setInterval(async () => {
-            if (!isMounted.current) return;
-            try {
-                await refreshConversations();
-            } catch { /* ignore */ }
-        }, 3000);
 
         // ─── CONVERSATION STREAM ───────────────────────────────────────────────────
         // Fires immediately when User1 creates a DM and the welcome push arrives.
@@ -185,7 +203,6 @@ export const ChatSidebar = ({
         };
 
         // ALL-MESSAGES STREAM
-        // ConsentState.Unknown includes brand-new inbound DMs
         const doMsgStream = async () => {
             try {
                 const msgStream = await client.conversations.streamAllMessages({
@@ -230,8 +247,35 @@ export const ChatSidebar = ({
             }
         };
 
-        // Run all three in parallel — none block each other
-        Promise.all([doInitialLoad(), doConvStream(), doMsgStream()]).catch(() => { });
+        // Run the initial load on mount
+        const init = async () => {
+            try {
+                // doInitialLoad returns its own errors via console/syncStatus
+                // but we want to make sure we don't start streams if the client is effectively dead
+                await doInitialLoad();
+                
+                if (!isMounted.current) return;
+
+                // ─── CONVERSATION STREAM ───────────────────────────────────────────────────
+                await doConvStream();
+
+                // ─── ALL-MESSAGES STREAM ──────────────────────────────────────────────────
+                await doMsgStream();
+
+            } catch (e) {
+                console.error("Critical error in sidebar initialization", e);
+            }
+        };
+
+        init();
+
+        // ─── POLLING (every 10 seconds - reduced for production stability) ─────────
+        pollInterval = setInterval(async () => {
+            if (!isMounted.current) return;
+            try {
+                await refreshConversations();
+            } catch { /* ignore */ }
+        }, 10000);
 
         return () => {
             isMounted.current = false;
@@ -239,21 +283,37 @@ export const ChatSidebar = ({
             if (msgStreamCleanup) msgStreamCleanup();
             if (pollInterval) clearInterval(pollInterval);
         };
-    }, [client, refreshTrigger, getDeletedBlocklist, refreshConversations, listAndSetConversations]);
+    }, [client, refreshTrigger, getDeletedBlocklist, refreshConversations, listAndSetConversations, doInitialLoad]); // Added doInitialLoad to deps
 
     return (
         <div className="flex flex-col h-full bg-zinc-950">
             {/* Sidebar Header */}
             <div className="p-4 border-b border-zinc-900 flex justify-between items-center bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-10">
-                <h2 className="text-lg font-bold text-white tracking-tight">Messages</h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-white tracking-tight">Messages</h2>
+                    <button
+                        onClick={refreshConversations}
+                        className="p-1.5 text-zinc-500 hover:text-white rounded-md hover:bg-zinc-900 transition-colors"
+                        title="Sync from network"
+                    >
+                        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    </button>
+                </div>
                 <ConnectButton accountStatus="avatar" showBalance={false} chainStatus="none" />
             </div>
 
             <div className="relative flex-1 overflow-y-auto custom-scrollbar">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-3">
-                        <div className="w-5 h-5 border-2 border-zinc-700 border-t-white rounded-full animate-spin"></div>
-                        <p className="text-xs font-medium">Loading chats...</p>
+                        <div className="w-5 h-5 border-2 border-zinc-700 border-t-white rounded-full animate-spin shadow-[0_0_10px_rgba(255,255,255,0.05)]"></div>
+                        <div className="text-center">
+                            <p className="text-xs font-semibold text-white">
+                                {syncStatus || "Recovering Chat History"}
+                            </p>
+                            <p className="text-[10px] text-zinc-600 mt-1 uppercase tracking-widest font-mono">
+                                This may take a moment
+                            </p>
+                        </div>
                     </div>
                 ) : conversations.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-zinc-500 p-6 text-center">
@@ -261,12 +321,20 @@ export const ChatSidebar = ({
                             <MessageSquare className="w-5 h-5 text-zinc-600" />
                         </div>
                         <p className="text-zinc-400 font-medium text-sm">No messages found</p>
-                        <button
-                            onClick={onNewChat}
-                            className="mt-4 text-xs font-semibold text-white hover:underline"
-                        >
-                            Start a conversation
-                        </button>
+                        <div className="flex flex-col gap-2 mt-4">
+                            <button
+                                onClick={onNewChat}
+                                className="text-xs font-semibold text-white hover:underline"
+                            >
+                                Start a fresh conversation
+                            </button>
+                            <button
+                                onClick={doInitialLoad}
+                                className="text-[10px] font-bold text-zinc-500 hover:text-zinc-300 uppercase tracking-tighter"
+                            >
+                                Try Full History Recovery
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <div className="px-2 py-2 space-y-0.5">

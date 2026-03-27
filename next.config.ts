@@ -4,6 +4,31 @@ const nextConfig: NextConfig = {
   // Disable strict mode — XMTP's WASM SDK creates persistent DB handles
   // that break when React re-runs effects in dev mode
   reactStrictMode: false,
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
+      },
+    ];
+  },
   // Webpack config for @xmtp/browser-sdk WASM support & fixing RainbowKit/Wagmi React Native issues
   webpack: (config) => {
     config.experiments = {
