@@ -32,6 +32,7 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteChatDialog, setShowDeleteChatDialog] = useState(false);
     const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+    const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Load hidden messages from local storage
@@ -116,6 +117,7 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
 
     useEffect(() => {
         let cleanup: (() => void) | undefined;
+        let cleanupFocus: (() => void) | undefined;
         let pollInterval: ReturnType<typeof setInterval> | undefined;
 
         const loadMessages = async () => {
@@ -180,12 +182,19 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                     );
 
                     setMessages((prev) => {
-                        // Prevent unnecessary re-renders by checking if messages actually changed
-                        if (prev.length === visibleMessages.length &&
-                            prev[prev.length - 1]?.id === visibleMessages[visibleMessages.length - 1]?.id) {
-                            return prev;
-                        }
-                        return visibleMessages;
+                        const merged = [...prev];
+                        let changed = false;
+                        visibleMessages.forEach(m => {
+                            if (!merged.find(pm => pm.id === m.id)) {
+                                merged.push(m);
+                                changed = true;
+                            }
+                        });
+                        
+                        if (!changed) return prev;
+                        
+                        // Sort by timestamp just in case they arrived out of order
+                        return merged.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
                     });
                 };
 
@@ -194,13 +203,22 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
 
                 // Polling fallback to catch messages synced from other devices
                 pollInterval = setInterval(async () => {
-                    try {
-                        const polledMessages = await fetchMessages(conversation);
-                        processAndSetMessages(polledMessages);
-                    } catch (e) {
-                        // silently ignore poll errors
+                    if (document.visibilityState === 'visible') {
+                        try {
+                            const polledMessages = await fetchMessages(conversation);
+                            processAndSetMessages(polledMessages);
+                        } catch (e) {
+                            // silently ignore poll errors
+                        }
                     }
-                }, 3000);
+                }, 5000);
+
+                // Window focus sync
+                const handleFocus = () => {
+                    fetchMessages(conversation).then(processAndSetMessages).catch(() => {});
+                };
+                window.addEventListener('focus', handleFocus);
+                cleanupFocus = () => window.removeEventListener('focus', handleFocus);
 
                 cleanup = await streamMessages(conversation, (message) => {
                     // Check for Delete Content Type
@@ -237,6 +255,18 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                         if (prev.find(m => m.id === message.id)) return prev;
                         return [...prev, message];
                     });
+
+                    // Remove from optimistic list if present
+                    setOptimisticMessages(prev => prev.filter(m => {
+                        // In v3, we can't easily correlate until the ID is known,
+                        // but once the stream message arrives, we can check if it matches an optimistic one's content/sender.
+                        // For string content:
+                        if (typeof m.content === 'string' && typeof message.content === 'string') {
+                            return m.content !== message.content;
+                        }
+                        // For files, it's trickier, so we can use a more clever approach later.
+                        return true; 
+                    }));
                 });
             } catch (e) {
                 console.error("Error loading chat", e);
@@ -250,17 +280,41 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
 
         return () => {
             if (cleanup) cleanup();
+            if (cleanupFocus) cleanupFocus();
             if (pollInterval) clearInterval(pollInterval);
         };
     }, [conversation.id, clientInboxId]); // Re-run when conversation ID changes
 
     const handleSendMessage = async (content: string | File) => {
         setIsSending(true);
+        const tempId = "temp-" + Date.now();
+        
+        // Add optimistic message
+        const optimisticMsg: any = {
+            id: tempId,
+            senderInboxId: clientInboxId,
+            sentAt: new Date(),
+            content: content instanceof File ? { filename: content.name, mimeType: content.type, data: new Uint8Array() } : content,
+            contentType: { 
+                authorityId: "xmtp.org", 
+                typeId: content instanceof File ? "remote-attachment" : "text", 
+                versionMajor: 1, 
+                versionMinor: 0,
+                parameters: {}
+            },
+            isOptimistic: true // Custom flag for UI
+        };
+
+        setOptimisticMessages(prev => [...prev, optimisticMsg]);
+
         try {
             await sendMessage(conversation, content);
-            // Optimistic update or wait for stream
+            // The stream will deliver the real message, 
+            // and we'll filter it out in the stream callback or by checking IDs
         } catch (e) {
             console.error("Failed to send", e);
+            // Remove optimistic message on failure
+            setOptimisticMessages(prev => prev.filter(m => m.id !== tempId));
             alert("Failed to send message");
         } finally {
             setIsSending(false);
@@ -323,9 +377,11 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                         <p className="text-sm mt-1 text-zinc-500">Say hello to start the conversation!</p>
                     </div>
                 ) : (
-
-                    messages
-                        .filter(msg => !hiddenMessageIds.has(msg.id))
+                    [
+                        ...messages.filter(msg => !hiddenMessageIds.has(msg.id)),
+                        ...optimisticMessages
+                    ]
+                        .sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime())
                         .map((msg, index, array) => {
                             const isNewDay = index === 0 || !isSameDay(new Date(msg.sentAt), new Date(array[index - 1].sentAt));
 

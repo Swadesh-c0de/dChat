@@ -68,6 +68,19 @@
       height: 0;
     }
   }
+
+  --animate-shimmer: shimmer 2s linear infinite;
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+
+  --animate-spin-slow: spin 8s linear infinite;
+  --animate-spin-reverse: spin 2s linear infinite reverse;
 }
 
 @layer utilities {

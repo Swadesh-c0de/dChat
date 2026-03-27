@@ -84,11 +84,23 @@ export const sendMessage = async (
             console.log("Encoded parameters:", encodedContent.parameters);
 
             const messageId = await conversation.send(encodedContent);
+            try {
+                await conversation.sync();
+            } catch (e) {
+                console.warn("Post-file sync failed (non-critical)", e);
+            }
             return messageId;
         }
 
         // V3 sendText returns message ID
         const messageId = await conversation.sendText(content);
+        try {
+            // Proactive sync ensures our local list is up-to-date with the new message
+            // and any concurrent changes from other devices.
+            await conversation.sync();
+        } catch (e) {
+            console.warn("Post-send sync failed (non-critical)", e);
+        }
         return messageId;
     } catch (e) {
         console.error("Failed to send message", e);

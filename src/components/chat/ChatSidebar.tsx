@@ -30,6 +30,7 @@ export const ChatSidebar = ({
     const [conversations, setConversations] = useState<ChatConversation[]>([]);
     const [loading, setLoading] = useState(true);
     const [syncStatus, setSyncStatus] = useState<string>("Initializing...");
+    const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
     // Load local profile
@@ -247,6 +248,21 @@ export const ChatSidebar = ({
             }
         };
 
+        // PERIODIC BACKGROUND SYNC
+        const syncInterval = setInterval(async () => {
+            if (!isMounted.current) return;
+            try {
+                if (isMounted.current) setIsBackgroundSyncing(true);
+                // Background sync metadata every 30s to catch changes from other devices
+                await client.conversations.sync();
+                await listAndSetConversations();
+            } catch (e) {
+                // Silently handle background sync failures
+            } finally {
+                if (isMounted.current) setIsBackgroundSyncing(false);
+            }
+        }, 30000);
+
         // Run the initial load on mount
         const init = async () => {
             try {
@@ -282,6 +298,7 @@ export const ChatSidebar = ({
             if (convStreamCleanup) convStreamCleanup();
             if (msgStreamCleanup) msgStreamCleanup();
             if (pollInterval) clearInterval(pollInterval);
+            if (syncInterval) clearInterval(syncInterval);
         };
     }, [client, refreshTrigger, getDeletedBlocklist, refreshConversations, listAndSetConversations, doInitialLoad]); // Added doInitialLoad to deps
 
@@ -291,28 +308,53 @@ export const ChatSidebar = ({
             <div className="p-4 border-b border-zinc-900 flex justify-between items-center bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-10">
                 <div className="flex items-center gap-2">
                     <h2 className="text-lg font-bold text-white tracking-tight">Messages</h2>
-                    <button
-                        onClick={refreshConversations}
-                        className="p-1.5 text-zinc-500 hover:text-white rounded-md hover:bg-zinc-900 transition-colors"
-                        title="Sync from network"
-                    >
-                        <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                    </button>
+                    <div className="flex items-center gap-1.5 min-w-[20px]">
+                        <button
+                            onClick={refreshConversations}
+                            className="p-1.5 text-zinc-500 hover:text-white rounded-md hover:bg-zinc-900 transition-colors"
+                            title="Sync from network"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${(loading || isBackgroundSyncing) ? 'animate-spin text-emerald-500' : ''}`} />
+                        </button>
+                        {isBackgroundSyncing && (
+                            <span className="text-[9px] font-bold text-emerald-500 uppercase tracking-tighter animate-pulse">Syncing</span>
+                        )}
+                    </div>
                 </div>
                 <ConnectButton accountStatus="avatar" showBalance={false} chainStatus="none" />
             </div>
 
             <div className="relative flex-1 overflow-y-auto custom-scrollbar">
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-3">
-                        <div className="w-5 h-5 border-2 border-zinc-700 border-t-white rounded-full animate-spin shadow-[0_0_10px_rgba(255,255,255,0.05)]"></div>
-                        <div className="text-center">
-                            <p className="text-xs font-semibold text-white">
-                                {syncStatus || "Recovering Chat History"}
-                            </p>
-                            <p className="text-[10px] text-zinc-600 mt-1 uppercase tracking-widest font-mono">
-                                This may take a moment
-                            </p>
+                    <div className="flex flex-col items-center justify-center h-full space-y-8 p-8 animate-in fade-in duration-500">
+                        <div className="relative w-24 h-24">
+                            {/* Outer tech ring */}
+                            <div className="absolute inset-0 rounded-full border-[1.5px] border-zinc-800 border-t-emerald-500/50 animate-[spin_3s_linear_infinite]" />
+                            {/* Inner tech ring */}
+                            <div className="absolute inset-2 rounded-full border-[1.5px] border-zinc-800 border-b-emerald-500/50 animate-[spin_2s_linear_infinite_reverse]" />
+                            {/* Pulse core */}
+                            <div className="absolute inset-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 animate-pulse flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+                                <RefreshCw className="w-4 h-4 text-emerald-500 animate-[spin_4s_linear_infinite]" />
+                            </div>
+                            
+                            {/* Rotating dots */}
+                            <div className="absolute inset-0 animate-[spin_8s_linear_infinite]">
+                                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                            </div>
+                        </div>
+
+                        <div className="text-center space-y-2">
+                            <h3 className="text-sm font-bold text-white tracking-widest uppercase">
+                                {syncStatus || "History Recovery"}
+                            </h3>
+                            <div className="flex flex-col items-center gap-1">
+                                <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-tighter">
+                                    Synchronizing with network
+                                </p>
+                                <div className="w-24 h-1 bg-zinc-900 rounded-full overflow-hidden mt-2 border border-zinc-800/50">
+                                    <div className="h-full bg-emerald-500/50 animate-[shimmer_1.5s_infinite] shadow-[0_0_8px_#10b98144]" style={{ width: '40%' }} />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ) : conversations.length === 0 ? (

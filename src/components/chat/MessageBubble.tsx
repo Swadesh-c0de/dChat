@@ -80,51 +80,56 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
         URL.revokeObjectURL(url);
     };
 
+    const isOptimistic = (message as any).isOptimistic;
+
     return (
         <div
-            className={`flex flex-col ${isMe ? "items-end" : "items-start"} mb-2 group animate-in slide-in-from-bottom-2 duration-300 relative`}
+            className={`flex flex-col ${isMe ? "items-end" : "items-start"} mb-2 group animate-in slide-in-from-bottom-2 duration-300 relative ${isOptimistic ? "opacity-60" : "opacity-100"}`}
         >
             <div className={`flex items-end gap-2 ${isMe ? "flex-row-reverse" : "flex-row"}`}>
                 <div
-                    className={`max-w-[85%] md:max-w-[70%] rounded-2xl p-2 shadow-md relative ${isMe
+                    className={`max-w-[70%] sm:max-w-[260px] md:max-w-[300px] w-fit rounded-2xl shadow-md relative ${isMe
                         ? "bg-white text-black rounded-br-sm"
                         : "bg-zinc-800 text-zinc-100 rounded-bl-sm border border-zinc-700"
-                        }`}
+                        } ${imageUrl ? "p-0 overflow-hidden" : "p-2"}`}
                 >
                     {displayAttachment ? (
                         imageUrl ? (
-                            <div className="relative group/image overflow-hidden rounded-xl min-w-50">
+                            <div className="relative group/image overflow-hidden bg-zinc-900 min-w-[200px] min-h-[150px] flex items-center justify-center">
                                 <img
                                     src={imageUrl}
                                     alt={displayAttachment.filename}
-                                    style={{
-                                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23cccccc' fill-opacity='0.4' fill-rule='evenodd'%3E%3Cpath d='M0 0h10v10H0zm10 10h10v10H10z'/%3E%3C/g%3E%3C/svg%3E")`,
-                                        backgroundSize: '20px 20px',
-                                        backgroundColor: 'white'
+                                    className="block w-auto h-auto max-w-full max-h-[420px] object-cover mx-auto transition-all duration-700 ease-out group-hover/image:scale-[1.03] animate-in fade-in zoom-in-95"
+                                    onLoad={() => {
+                                        onImageLoad?.();
                                     }}
-                                    className="block w-full max-w-100 max-h-75 object-contain mx-auto"
-                                    onLoad={onImageLoad}
                                 />
+                                {isOptimistic && (
+                                    <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px] flex items-center justify-center">
+                                        <Loader2 className="w-8 h-8 animate-spin text-white/50" />
+                                    </div>
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover/image:opacity-100 transition-opacity pointer-events-none" />
                                 <button
                                     onClick={handleDownload}
-                                    className="absolute bottom-2 right-2 p-1.5 bg-black/50 text-white rounded-full opacity-0 group-hover/image:opacity-100 transition-opacity hover:bg-black/70"
+                                    className="absolute bottom-3 right-3 p-2.5 bg-black/60 text-white rounded-full translate-y-2 opacity-0 group-hover/image:opacity-100 group-hover/image:translate-y-0 transition-all hover:bg-black/80 hover:scale-110 shadow-xl backdrop-blur-md z-10"
                                     title="Download image"
                                 >
                                     <Download className="w-4 h-4" />
                                 </button>
                             </div>
                         ) : (
-                            <div className={`flex items-center gap-3 p-2 rounded-xl border ${isMe ? 'border-zinc-200 bg-black/5' : 'border-zinc-700 bg-white/5'}`}>
-                                <div className={`p-2 rounded-lg ${isMe ? 'bg-white shadow-sm' : 'bg-zinc-800 shadow-sm'}`}>
-                                    <FileIcon className={`w-5 h-5 ${isMe ? 'text-zinc-600' : 'text-zinc-400'}`} />
+                            <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${isMe ? 'border-zinc-200 bg-white' : 'border-zinc-700 bg-zinc-800/50'}`}>
+                                <div className={`p-2.5 rounded-xl ${isMe ? 'bg-zinc-100 text-zinc-600' : 'bg-zinc-900 text-zinc-400'} shadow-inner`}>
+                                    <FileIcon className="w-5 h-5" />
                                 </div>
                                 <div className="flex flex-col overflow-hidden">
-                                    <span className={`text-sm font-medium truncate max-w-37.5 ${isMe ? 'text-zinc-900' : 'text-zinc-100'}`}>{displayAttachment.filename}</span>
-                                    <span className={`text-xs ${isMe ? 'text-zinc-500' : 'text-zinc-400'}`}>{(displayAttachment.data.byteLength / 1024).toFixed(1)} KB</span>
+                                    <span className={`text-sm font-semibold truncate max-w-[140px] ${isMe ? 'text-zinc-900' : 'text-zinc-100'}`}>{displayAttachment.filename}</span>
+                                    <span className={`text-[10px] uppercase font-bold tracking-tighter ${isMe ? 'text-zinc-400' : 'text-zinc-500'}`}>{(displayAttachment.data.byteLength / 1024).toFixed(1)} KB</span>
                                 </div>
                                 <button
                                     onClick={handleDownload}
-                                    className={`p-1.5 rounded-full transition-colors ml-2 ${isMe ? 'text-zinc-500 hover:text-black hover:bg-zinc-200' : 'text-zinc-400 hover:text-white hover:bg-zinc-700'}`}
+                                    className={`p-2 rounded-full transition-all ml-auto ${isMe ? 'text-zinc-400 hover:text-black hover:bg-zinc-100' : 'text-zinc-500 hover:text-white hover:bg-zinc-700'}`}
                                     title="Download file"
                                 >
                                     <Download className="w-4 h-4" />
@@ -132,9 +137,12 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
                             </div>
                         )
                     ) : isRemoteAttachment && isLoading ? (
-                        <div className="flex items-center gap-2 p-3">
-                            <Loader2 className="w-4 h-4 animate-spin text-zinc-400" />
-                            <span className="text-xs text-zinc-400">Loading attachment...</span>
+                        <div className="flex flex-col items-center justify-center gap-3 p-8 min-w-[200px] bg-zinc-900/50 rounded-2xl border border-zinc-800/50 animate-pulse">
+                            <div className="relative">
+                                <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+                                <div className="absolute inset-0 blur-md bg-emerald-500/20 animate-pulse" />
+                            </div>
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Decrypting...</span>
                         </div>
                     ) : error ? (
                         <div className="p-2 text-xs text-red-400">
@@ -163,9 +171,17 @@ export const MessageBubble = ({ message, isMe, onImageLoad, onDelete }: MessageB
                     <Trash2 className="w-4 h-4" />
                 </button>
             </div>
-            <span className={`text-[10px] mt-1 px-1 text-zinc-500`}>
-                {format(message.sentAt, "h:mm a")}
-            </span>
+            <div className="flex items-center gap-2 mt-1">
+                <span className={`text-[10px] text-zinc-500 font-medium`}>
+                    {format(message.sentAt, "h:mm a")}
+                </span>
+                {isOptimistic && (
+                    <span className="flex items-center gap-1 text-[9px] text-zinc-500 font-bold uppercase tracking-tighter">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        Sending
+                    </span>
+                )}
+            </div>
         </div>
     );
 };
