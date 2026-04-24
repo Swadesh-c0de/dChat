@@ -17,7 +17,7 @@
     "@rainbow-me/rainbowkit": "^2.2.10",
     "@tanstack/react-query": "^5.90.20",
     "@tybys/wasm-util": "^0.10.1",
-    "@xmtp/browser-sdk": "^6.3.0",
+    "@xmtp/browser-sdk": "^7.0.0",
     "@xmtp/content-type-remote-attachment": "^2.0.4",
     "axios": "^1.13.5",
     "class-variance-authority": "^0.7.1",
@@ -27,14 +27,14 @@
     "framer-motion": "^12.34.0",
     "gsap": "^3.14.2",
     "lucide-react": "^0.563.0",
-    "next": "16.1.6",
-    "pinata-web3": "^0.5.4",
+    "next": "16.2.1",
+    "pinata": "^2.5.5",
     "radix-ui": "^1.4.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "viem": "^2.45.3",
+    "viem": "^2.47.6",
     "wagmi": "^2.19.5"
   },
   "devDependencies": {
@@ -43,8 +43,11 @@
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "undici": "^6.24.0"
   }
 }

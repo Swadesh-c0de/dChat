@@ -8,9 +8,10 @@ import { Menu, ArrowLeft } from "lucide-react";
 
 interface ChatLayoutProps {
     client: ChatClient;
+    onFatalError?: (error: any) => void;
 }
 
-export const ChatLayout = ({ client }: ChatLayoutProps) => {
+export const ChatLayout = ({ client, onFatalError }: ChatLayoutProps) => {
     const [selectedConversation, setSelectedConversation] = useState<ChatConversation | undefined>();
     const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -45,6 +46,7 @@ export const ChatLayout = ({ client }: ChatLayoutProps) => {
                     selectedConversation={selectedConversation}
                     onNewChat={() => setIsNewChatModalOpen(true)}
                     refreshTrigger={refreshTrigger}
+                    onFatalError={onFatalError}
                 />
             </div>
 

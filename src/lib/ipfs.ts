@@ -1,4 +1,4 @@
-import { PinataSDK } from "pinata-web3";
+import { PinataSDK } from "pinata";
 
 export const uploadFileToIPFS = async (file: File): Promise<string> => {
     const jwt = process.env.NEXT_PUBLIC_PINATA_JWT;
@@ -12,8 +12,8 @@ export const uploadFileToIPFS = async (file: File): Promise<string> => {
     });
 
     try {
-        const upload = await pinata.upload.file(file);
-        return upload.IpfsHash;
+        const upload = await pinata.upload.public.file(file);
+        return upload.cid;
     } catch (error) {
         console.error("Error uploading file to IPFS:", error);
         throw new Error("Failed to upload file to IPFS");
