@@ -5,7 +5,6 @@ import { hexToBytes } from "viem";
 import { AttachmentCodec, RemoteAttachmentCodec } from "@xmtp/content-type-remote-attachment";
 import { DeleteCodec } from "./codecs/DeleteCodec";
 import { ProfileCodec } from "./codecs/ProfileCodec";
-import { CallCodec } from "./codecs/CallCodec";
 
 let clientInstance: Client<any> | null = null;
 
@@ -71,7 +70,7 @@ export const createXmtpClient = async ({
         // Use any for options as a workaround for the Omit union vs literal property type conflict in v7 types
         const client = await Client.create(signer, {
             env: env as any,
-            codecs: [new AttachmentCodec(), new RemoteAttachmentCodec(), new DeleteCodec(), new ProfileCodec(), new CallCodec()],
+            codecs: [new AttachmentCodec(), new RemoteAttachmentCodec(), new DeleteCodec(), new ProfileCodec()],
         } as any);
 
         // Monkey patch address for session management in UI
