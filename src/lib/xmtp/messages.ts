@@ -184,23 +184,3 @@ export const sendProfileUpdateMessage = async (
         throw e;
     }
 };
-
-import { CallCodec, CallContent } from "./codecs/CallCodec";
-
-export const sendCallSignal = async (
-    conversation: ChatConversation,
-    signal: CallContent
-): Promise<string> => {
-    try {
-        const codec = new CallCodec();
-        const encodedContent = codec.encode(signal);
-
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        const messageIdResponse = await conversation.send(encodedContent);
-        return messageIdResponse;
-    } catch (e) {
-        console.error("Failed to send call signal", e);
-        throw e;
-    }
-};

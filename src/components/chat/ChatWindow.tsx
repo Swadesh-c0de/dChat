@@ -4,12 +4,9 @@ import { useConversationDisplay } from "@/hooks/useConversationDisplay";
 import { fetchMessages, sendMessage, streamMessages, sendDeleteMessage } from "@/lib/xmtp/messages";
 import { ContentTypeDelete } from "@/lib/xmtp/codecs/DeleteCodec";
 import { deleteConversation } from "@/lib/xmtp/conversations";
-import { useWebRTC } from "@/hooks/useWebRTC";
-import { VideoCallModal } from "./VideoCallModal";
-import { IncomingCallModal } from "./IncomingCallModal";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
-import { Loader2, Trash2, ArrowLeft, Phone, Video } from "lucide-react";
+import { Loader2, Trash2, ArrowLeft } from "lucide-react";
 import { format, isSameDay, isToday, isYesterday } from "date-fns";
 import {
     Dialog,
@@ -100,16 +97,6 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
     // Resolve display info
     const { title, isLoading: isTitleLoading, avatarSeed } = useConversationDisplay(conversation);
 
-    // WebRTC video/voice calling
-    const webrtc = useWebRTC({
-        conversation,
-        clientInboxId,
-    });
-
-    // Keep a ref to the latest handleCallSignal to avoid stale closures in the stream callback
-    const handleCallSignalRef = useRef(webrtc.handleCallSignal);
-    handleCallSignalRef.current = webrtc.handleCallSignal;
-
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         messagesEndRef.current?.scrollIntoView({ behavior });
     };
@@ -191,8 +178,7 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
 
                     const visibleMessages = newMessages.filter(m =>
                         !(m.contentType.typeId === "delete" && m.contentType.authorityId === "xmtp.org") &&
-                        !(m.contentType.typeId === "profile" && m.contentType.authorityId === "xmtp.org") &&
-                        !(m.contentType.typeId === "call" && m.contentType.authorityId === "xmtp.org")
+                        !(m.contentType.typeId === "profile" && m.contentType.authorityId === "xmtp.org")
                     );
 
                     setMessages((prev) => {
@@ -262,13 +248,6 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                             console.error("Failed to save peer profile", e);
                         }
                         return; // Don't add internal profile update messages to the visual chat list
-                    }
-
-                    // Check for Call Content Type — route to WebRTC hook
-                    if (message.contentType.typeId === "call" && message.contentType.authorityId === "xmtp.org") {
-                        const signal = message.content as any;
-                        handleCallSignalRef.current(signal, message.senderInboxId);
-                        return; // Don't add call signals to the visual chat list
                     }
 
                     // Only append if not already in list
@@ -373,30 +352,14 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                         </span>
                     </div>
                 </div>
-                <div className="flex items-center gap-1">
-                    <button
-                        onClick={() => webrtc.startCall(false)}
-                        title="Voice Call"
-                        className="p-2.5 text-zinc-400 hover:text-zinc-50 hover:bg-zinc-900 rounded-full transition-all duration-200"
-                    >
-                        <Phone className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={() => webrtc.startCall(true)}
-                        title="Video Call"
-                        className="p-2.5 text-zinc-400 hover:text-zinc-50 hover:bg-zinc-900 rounded-full transition-all duration-200"
-                    >
-                        <Video className="w-5 h-5" />
-                    </button>
-                    <button
-                        onClick={() => setShowDeleteChatDialog(true)}
-                        disabled={isDeleting}
-                        className="p-2.5 text-zinc-400 hover:text-zinc-50 hover:bg-zinc-900 rounded-full transition-all duration-200"
-                        title="Delete Chat"
-                    >
-                        {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
-                    </button>
-                </div>
+                <button
+                    onClick={() => setShowDeleteChatDialog(true)}
+                    disabled={isDeleting}
+                    className="p-2.5 text-zinc-400 hover:text-zinc-50 hover:bg-zinc-900 rounded-full transition-all duration-200"
+                    title="Delete Chat"
+                >
+                    {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
+                </button>
             </div>
 
             {/* Messages */}
@@ -540,16 +503,6 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
 
             {/* Input */}
             <MessageInput onSendMessage={handleSendMessage} isLoading={isSending} />
-
-            {/* Video/Voice Call Modal */}
-            {webrtc.callState !== "idle" && webrtc.callState !== "ended" && webrtc.callState !== "ringing" && (
-                <VideoCallModal webrtc={webrtc} peerName={title} />
-            )}
-
-            {/* Incoming Call Modal */}
-            {webrtc.incomingCallId && webrtc.callState === "ringing" && (
-                <IncomingCallModal webrtc={webrtc} peerName={title} />
-            )}
         </div>
     );
 };
