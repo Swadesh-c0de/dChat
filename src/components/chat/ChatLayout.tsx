@@ -3,12 +3,14 @@ import { ChatConversation } from "@/types/chat";
 import { ChatClient } from "@/lib/xmtp/client";
 import { ChatSidebar } from "./ChatSidebar";
 import { ChatWindow } from "./ChatWindow";
-import { NewChatModal } from "./NewChatModal";
 import { Menu, ArrowLeft } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const NewChatModal = dynamic(() => import("./NewChatModal").then(mod => mod.NewChatModal), { ssr: false });
 
 interface ChatLayoutProps {
     client: ChatClient;
-    onFatalError?: (error: any) => void;
+    onFatalError?: (error: unknown) => void;
 }
 
 export const ChatLayout = ({ client, onFatalError }: ChatLayoutProps) => {

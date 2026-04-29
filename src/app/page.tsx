@@ -1,73 +1,71 @@
-'use client';
-
 import { Navbar } from "@/components/layout/navbar";
-import { LoginButton } from "@/components/auth/login-button";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import {
-  ChevronRight,
   ShieldCheck,
   Zap,
   GlobeLock,
   ArrowRight,
-  MessageSquare,
   Shield,
   Activity,
+  MessageSquare,
+  Video,
+  Phone,
 } from "lucide-react";
-import { useAccount } from "wagmi";
 import { ProjectOverviewCard } from "@/components/home/project-overview-card";
 import { CodePreview } from "@/components/home/code-preview";
 import { EncryptionCard } from "@/components/home/encryption-card";
+import { HeroCTA } from "@/components/home/hero-cta";
+import { BottomCTA } from "@/components/home/bottom-cta";
+import { FeatureCard } from "@/components/home/feature-card";
+import { ScrollAnimationWrapper } from "@/components/home/scroll-animation-wrapper";
 
 const features = [
   {
     icon: ShieldCheck,
     title: "XMTP V3 Encryption",
-    description: "Every message is sealed with X3DH key exchange and Double Ratchet protocol — ensuring total privacy.",
+    description: "Every message is sealed with MLS (Messaging Layer Security) — ensuring multi-device forward secrecy.",
     accent: "from-emerald-500/20 to-emerald-500/0",
+  },
+  {
+    icon: Video,
+    title: "E2E Voice & Video",
+    description: "Encrypted peer-to-peer calling powered by WebRTC. High-fidelity streams, zero surveillance.",
+    accent: "from-blue-500/20 to-blue-500/0",
   },
   {
     icon: GlobeLock,
     title: "IPFS File Sharing",
     description: "Decentralized file storage via Pinata & Remote Attachments. Encrypted before it ever leaves your device.",
-    accent: "from-blue-500/20 to-blue-500/0",
-  },
-  {
-    icon: Zap,
-    title: "Multi-Device Sync",
-    description: "Built-in session management and revocation. Seamlessly handle the 10-installation protocol limit.",
-    accent: "from-amber-500/20 to-amber-500/0",
-  },
-  {
-    icon: MessageSquare,
-    title: "Real-time Streaming",
-    description: "Instant message delivery via decentralized nodes. No central server delays or bottlenecks.",
     accent: "from-purple-500/20 to-purple-500/0",
   },
   {
     icon: Shield,
-    title: "Wallet-Native Auth",
-    description: "Your Ethereum address IS your identity. No emails, no passwords, no centralized databases.",
+    title: "Sovereign Identity",
+    description: "Your wallet is your profile. Persistent avatars and names synced across the decentralized web.",
+    accent: "from-amber-500/20 to-amber-500/0",
+  },
+  {
+    icon: Zap,
+    title: "Instant Sync",
+    description: "Automatic history recovery and real-time streaming via decentralized nodes. No central server bottlenecks.",
     accent: "from-zinc-500/20 to-zinc-500/0",
   },
   {
     icon: Activity,
-    title: "Smart UX",
-    description: "Automatic message grouping, intelligent date headers, and persistent scroll management by default.",
+    title: "Enterprise UX",
+    description: "Multi-device session management, message revocation, and intelligent threading by default.",
     accent: "from-cyan-500/20 to-cyan-500/0",
   },
 ];
 
 const stats = [
-  { label: "Protocol", value: "XMTP V3" },
-  { label: "Encryption", value: "E2E" },
+  { label: "Protocol", value: "MLS V3" },
+  { label: "Calling", value: "WebRTC" },
   { label: "Storage", value: "IPFS" },
-  { label: "Sovereign", value: "100%" },
+  { label: "Uptime", value: "99.9%" },
 ];
 
 export default function Home() {
-  const { isConnected } = useAccount();
-
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-white/20 selection:text-white flex flex-col overflow-hidden">
       <Navbar />
@@ -110,27 +108,7 @@ export default function Home() {
             </div>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full sm:w-auto animate-float-up-delay-3 px-4">
-              <LoginButton />
-              {isConnected && (
-                <Link
-                  href="/chat"
-                  className="group px-8 py-3.5 rounded-full bg-foreground text-background hover:bg-foreground/90 transition-all duration-300 font-bold flex items-center justify-center gap-2 text-sm shadow-lg hover:shadow-xl hover:scale-105 w-full sm:w-auto"
-                >
-                  Launch App
-                  <MessageSquare className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
-                </Link>
-              )}
-              <a
-                href="https://docs.xmtp.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group px-8 py-3.5 rounded-full border border-border/60 bg-white/[0.02] md:backdrop-blur-sm hover:bg-white/[0.05] text-foreground transition-all duration-300 font-medium flex items-center justify-center gap-2 text-sm hover:border-white/20 w-full sm:w-auto"
-              >
-                Read Protocol
-                <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
-              </a>
-            </div>
+            <HeroCTA />
 
             {/* Stats strip */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 pt-12 items-center justify-center animate-float-up-delay-4 border-t border-white/5 opacity-80">
@@ -156,7 +134,7 @@ export default function Home() {
                     <span className="text-zinc-600 italic">Engineered for Privacy.</span>
                   </h2>
                   <p className="text-lg text-zinc-400 max-w-xl leading-relaxed">
-                    dChat isn't just a UI; it's a decentralized node in the global XMTP web.
+                    dChat isn&apos;t just a UI; it&apos;s a decentralized node in the global XMTP web.
                     Integrating V3 protocols for end-to-end sovereignty.
                   </p>
                 </div>
@@ -164,30 +142,30 @@ export default function Home() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                   <div className="space-y-2">
                     <div className="h-px w-8 bg-emerald-500/50 mb-4" />
-                    <h4 className="text-sm font-bold text-white uppercase tracking-widest">Client Singleton</h4>
+                    <h4 className="text-sm font-bold text-white uppercase tracking-widest">E2E Media Layer</h4>
                     <p className="text-xs text-zinc-500 leading-relaxed">
-                      Advanced session management prevents concurrent client conflicts and handles the 10/10 device limit automatically.
+                      Custom WebRTC implementation with XMTP signaling ensures that voice and video metadata never touches a central server.
                     </p>
                   </div>
                   <div className="space-y-2">
                     <div className="h-px w-8 bg-blue-500/50 mb-4" />
                     <h4 className="text-sm font-bold text-white uppercase tracking-widest">Remote Attachments</h4>
                     <p className="text-xs text-zinc-500 leading-relaxed">
-                      Files are sliced, encrypted with unique keys, and pinned to IPFS. Only the recipient can reconstruct the data.
+                      Files are encrypted with unique keys and pinned to IPFS. Only the recipient with the correct hash can reconstruct them.
                     </p>
                   </div>
                   <div className="space-y-2">
                     <div className="h-px w-8 bg-purple-500/50 mb-4" />
-                    <h4 className="text-sm font-bold text-white uppercase tracking-widest">Protocol V3</h4>
+                    <h4 className="text-sm font-bold text-white uppercase tracking-widest">MLS Protocol V3</h4>
                     <p className="text-xs text-zinc-500 leading-relaxed">
-                      Leverages the latest MLS (Messaging Layer Security) standards for group chats and improved network performance.
+                      Utilizes Messaging Layer Security for perfect forward secrecy and efficient group messaging across all devices.
                     </p>
                   </div>
                   <div className="space-y-2">
                     <div className="h-px w-8 bg-zinc-500/50 mb-4" />
-                    <h4 className="text-sm font-bold text-white uppercase tracking-widest">Decentralized Auth</h4>
+                    <h4 className="text-sm font-bold text-white uppercase tracking-widest">Self-Sovereign Identity</h4>
                     <p className="text-xs text-zinc-500 leading-relaxed">
-                      Signature-based identity verification. No passwords, no KYC, no central user database to be breached.
+                      Names and avatars are encrypted and stored on the network. Your social graph is your own, portable and permanent.
                     </p>
                   </div>
                 </div>
@@ -219,33 +197,15 @@ export default function Home() {
 
             {/* Feature cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {features.map((feature, i) => {
-                const Icon = feature.icon;
-                return (
-                  <motion.div
-                    key={feature.title}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true, margin: "-50px" }}
-                    transition={{ duration: 0.4, delay: i * 0.08 }}
-                    className="rounded-2xl p-6 sm:p-8 bg-white/[0.02] border border-white/[0.06] cursor-default group hover:border-white/15 hover:bg-white/[0.04] transition-all duration-300"
-                  >
-                    {/* Icon */}
-                    <div className="relative mb-6">
-                      <div className="h-12 w-12 rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center group-hover:scale-110 group-hover:border-white/20 transition-all duration-300">
-                        <Icon className="h-6 w-6 text-foreground" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <h3 className="text-lg font-bold text-foreground tracking-tight">{feature.title}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {feature.description}
-                      </p>
-                    </div>
-                  </motion.div>
-                );
-              })}
+              {features.map((feature, i) => (
+                <FeatureCard
+                  key={feature.title}
+                  title={feature.title}
+                  description={feature.description}
+                  icon={<feature.icon className="h-6 w-6 text-foreground" />}
+                  index={i}
+                />
+              ))}
             </div>
           </div>
         </section>
@@ -255,14 +215,9 @@ export default function Home() {
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
             <div className="order-2 lg:order-1 flex justify-center">
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-80px" }}
-                transition={{ duration: 0.6 }}
-              >
+              <ScrollAnimationWrapper>
                 <EncryptionCard />
-              </motion.div>
+              </ScrollAnimationWrapper>
             </div>
 
             <div className="order-1 lg:order-2 space-y-8">
@@ -271,7 +226,7 @@ export default function Home() {
                   Zero Access.<br />Zero Metadata.
                 </h2>
                 <p className="text-lg text-zinc-400 leading-relaxed">
-                  Unlike traditional "secure" apps, dChat removes the company from the equation.
+                  Unlike traditional &quot;secure&quot; apps, dChat removes the company from the equation.
                   Messages are end-to-end encrypted before they reach the network.
                   Even the XMTP nodes cannot see who is talking to whom.
                 </p>
@@ -323,14 +278,9 @@ export default function Home() {
               </p>
             </div>
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              transition={{ duration: 0.4 }}
-              viewport={{ once: true, margin: "-100px" }}
-            >
+            <ScrollAnimationWrapper>
               <CodePreview />
-            </motion.div>
+            </ScrollAnimationWrapper>
 
             <div className="flex flex-wrap justify-center gap-6 sm:gap-12 opacity-40 grayscale hover:grayscale-0 transition-all duration-700">
               {['Wagmi', 'Next.js', 'Viem', 'Pinata', 'Tailwind', 'RainbowKit'].map(logo => (
@@ -350,17 +300,7 @@ export default function Home() {
             <p className="text-zinc-400 text-lg">
               No signups. No fees. Just pure, decentralized communication.
             </p>
-            <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <LoginButton />
-              {isConnected && (
-                <Link
-                  href="/chat"
-                  className="px-8 py-3.5 rounded-full bg-white text-black font-bold hover:scale-105 transition-all shadow-[0_0_30px_rgba(255,255,255,0.1)]"
-                >
-                  Open Inbox
-                </Link>
-              )}
-            </div>
+            <BottomCTA />
             <p className="text-[10px] text-zinc-600 uppercase tracking-[0.3em] pt-8">
               Available on all modern web browsers & mobile devices.
             </p>

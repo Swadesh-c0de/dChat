@@ -12,12 +12,14 @@ interface VideoCallModalProps {
 }
 
 export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
+    const { isVideoOff, callState, isVideo, isMuted, remoteAudioRef, remoteVideoRef, localVideoRef, toggleMute, toggleVideo, hangUp } = webrtc;
     const [elapsed, setElapsed] = useState(0);
     const [isMinimized, setIsMinimized] = useState(false);
 
     // Call timer
     useEffect(() => {
-        if (webrtc.callState !== "connected") {
+        if (callState !== "connected") {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setElapsed(0);
             return;
         }
@@ -27,7 +29,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [webrtc.callState]);
+    }, [callState]);
 
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -36,7 +38,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
     };
 
     const statusText = () => {
-        switch (webrtc.callState) {
+        switch (callState) {
             case "calling": return "Calling...";
             case "ringing": return "Ringing...";
             case "connected": return formatTime(elapsed);
@@ -48,7 +50,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
     return (
         <>
             {/* Hidden audio element — always plays remote audio */}
-            <audio ref={webrtc.remoteAudioRef as React.RefObject<HTMLAudioElement | null>} autoPlay playsInline />
+            <audio ref={remoteAudioRef as React.RefObject<HTMLAudioElement | null>} autoPlay playsInline />
             {/* Minimized floating pill — shown on top when minimized */}
             {isMinimized && (
                 <div
@@ -73,9 +75,9 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
             >
                 {/* Remote Video — fullscreen background */}
                 <div className="flex-1 relative overflow-hidden">
-                    {webrtc.isVideo ? (
+                    {isVideo ? (
                         <video
-                            ref={webrtc.remoteVideoRef as React.RefObject<HTMLVideoElement | null>}
+                            ref={remoteVideoRef as React.RefObject<HTMLVideoElement | null>}
                             autoPlay
                             playsInline
                             className="w-full h-full object-cover"
@@ -91,7 +93,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
                             <div className="flex flex-col items-center gap-1">
                                 <h2 className="text-white text-xl font-bold tracking-tight">{peerName}</h2>
                                 <span className={`text-sm font-medium ${
-                                    webrtc.callState === "connected"
+                                    callState === "connected"
                                         ? "text-emerald-400"
                                         : "text-zinc-400"
                                 }`}>
@@ -99,7 +101,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
                                 </span>
                             </div>
                             {/* Audio wave animation when connected */}
-                            {webrtc.callState === "connected" && (
+                            {callState === "connected" && (
                                 <div className="flex items-end gap-1 h-8">
                                     {[...Array(5)].map((_, i) => (
                                         <div
@@ -117,7 +119,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
                     )}
 
                     {/* Calling / Ringing overlay */}
-                    {(webrtc.callState === "calling" || webrtc.callState === "ringing") && webrtc.isVideo && (
+                    {(callState === "calling" || callState === "ringing") && isVideo && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
                             <div className="w-20 h-20 rounded-full bg-zinc-800/80 border border-zinc-700 flex items-center justify-center mb-4 animate-pulse">
                                 <span className="text-3xl font-bold text-white">
@@ -130,17 +132,17 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
                     )}
 
                     {/* Local Video — picture-in-picture */}
-                    {webrtc.isVideo && (
+                    {isVideo && (
                         <div className="absolute top-4 right-4 w-36 h-48 sm:w-44 sm:h-56 rounded-2xl overflow-hidden border-2 border-zinc-700 shadow-2xl bg-zinc-900">
                             <video
-                                ref={webrtc.localVideoRef as React.RefObject<HTMLVideoElement | null>}
+                                ref={localVideoRef as React.RefObject<HTMLVideoElement | null>}
                                 autoPlay
                                 playsInline
                                 muted
                                 className="w-full h-full object-cover mirror"
                                 style={{ transform: "scaleX(-1)" }}
                             />
-                            {webrtc.isVideoOff && (
+                            {isVideoOff && (
                                 <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
                                     <VideoOff className="w-8 h-8 text-zinc-600" />
                                 </div>
@@ -149,7 +151,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
                     )}
 
                     {/* Connected status for video calls */}
-                    {webrtc.isVideo && webrtc.callState === "connected" && (
+                    {isVideo && callState === "connected" && (
                         <div className="absolute top-4 left-4 flex items-center gap-2 bg-black/50 backdrop-blur-md rounded-xl px-3 py-2">
                             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                             <span className="text-white text-sm font-medium">{peerName}</span>
@@ -172,35 +174,35 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
 
                         {/* Mute Toggle */}
                         <button
-                            onClick={webrtc.toggleMute}
+                            onClick={toggleMute}
                             className={`p-3.5 rounded-full transition-all duration-200 ${
-                                webrtc.isMuted
+                                isMuted
                                     ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 ring-1 ring-red-500/30"
                                     : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
                             }`}
-                            title={webrtc.isMuted ? "Unmute" : "Mute"}
+                            title={isMuted ? "Unmute" : "Mute"}
                         >
-                            {webrtc.isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                            {isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
                         </button>
 
                         {/* Video Toggle */}
-                        {webrtc.isVideo && (
+                        {isVideo && (
                             <button
-                                onClick={webrtc.toggleVideo}
+                                onClick={toggleVideo}
                                 className={`p-3.5 rounded-full transition-all duration-200 ${
-                                    webrtc.isVideoOff
+                                    isVideoOff
                                         ? "bg-red-500/20 text-red-400 hover:bg-red-500/30 ring-1 ring-red-500/30"
                                         : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
                                 }`}
-                                title={webrtc.isVideoOff ? "Turn on Camera" : "Turn off Camera"}
+                                title={isVideoOff ? "Turn on Camera" : "Turn off Camera"}
                             >
-                                {webrtc.isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                                {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
                             </button>
                         )}
 
                         {/* Hang Up */}
                         <button
-                            onClick={webrtc.hangUp}
+                            onClick={hangUp}
                             className="p-4 rounded-full bg-red-600 hover:bg-red-500 text-white transition-all duration-200 shadow-lg shadow-red-600/20 hover:shadow-red-500/30 active:scale-95"
                             title="Hang Up"
                         >

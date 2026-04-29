@@ -87,6 +87,20 @@ export const useWebRTC = ({
         setIsVideoOff(false);
         setIncomingCallId(null);
     }, []);
+    const hangUp = useCallback(() => {
+        if (currentCallIdRef.current) {
+            sendCallSignal(conversation, {
+                signalType: "hang-up",
+                callId: currentCallIdRef.current,
+            }).catch(err => console.error("Failed to send hang-up signal", err));
+        }
+
+        cleanup();
+        setCallState("ended");
+        onCallEnded?.();
+
+        setTimeout(() => setCallState("idle"), 2000);
+    }, [conversation, cleanup, onCallEnded]);
 
     const createPeerConnection = useCallback(() => {
         const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
@@ -129,7 +143,7 @@ export const useWebRTC = ({
 
         peerConnectionRef.current = pc;
         return pc;
-    }, [conversation]);
+    }, [conversation, hangUp]);
 
     const getLocalMedia = useCallback(async (video: boolean) => {
         try {
@@ -264,24 +278,6 @@ export const useWebRTC = ({
         cleanup();
         setCallState("idle");
     }, [conversation, cleanup]);
-
-    // ─── Hang Up ───────────────────────────────────────────────────
-
-    const hangUp = useCallback(() => {
-        if (currentCallIdRef.current) {
-            sendCallSignal(conversation, {
-                signalType: "hang-up",
-                callId: currentCallIdRef.current,
-            }).catch(err => console.error("Failed to send hang-up signal", err));
-        }
-
-        cleanup();
-        setCallState("ended");
-        onCallEnded?.();
-
-        // Reset to idle after a short delay so "ended" state can be shown briefly
-        setTimeout(() => setCallState("idle"), 2000);
-    }, [conversation, cleanup, onCallEnded]);
 
     // ─── Media Toggles ─────────────────────────────────────────────
 

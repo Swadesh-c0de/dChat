@@ -95,8 +95,8 @@ export const disconnectXmtpClient = () => {
 };
 
 export const revokeOtherInstallations = async (
-    walletClient: WalletClient, 
-    inboxId: string, 
+    walletClient: WalletClient,
+    inboxId: string,
     env: XmtpEnv = (process.env.NEXT_PUBLIC_XMTP_ENV as any) || "production"
 ) => {
     if (!walletClient.account) throw new Error("Wallet not connected");
@@ -178,38 +178,3 @@ export const revokeOtherInstallations = async (
         throw error;
     }
 };
-
-/**
- * Wipes all local XMTP data from the browser's Origin Private File System (OPFS).
- * This is a "hard reset" for the XMTP V3 client on the current device.
- */
-export const wipeLocalXmtpData = async () => {
-    try {
-        console.log("Wiping local XMTP storage (OPFS)...");
-        // Get the root of the OPFS
-        const root = await navigator.storage.getDirectory();
-        
-        // XMTP v3 usually stores data in a directory or file within OPFS
-        // To be safe and thorough, we clear the entire directory.
-        // We iterate and remove all entries.
-        for await (const name of (root as any).keys()) {
-            await root.removeEntry(name, { recursive: true });
-        }
-        
-        console.log("Local XMTP storage wiped successfully.");
-        return true;
-    } catch (error) {
-        console.error("Failed to wipe local XMTP storage:", error);
-        // Fallback: try clearing indexedDB if any was used (though V3 is primarily OPFS)
-        try {
-            const dbs = await window.indexedDB.databases();
-            dbs.forEach(db => {
-                if (db.name?.includes("xmtp")) {
-                    window.indexedDB.deleteDatabase(db.name);
-                }
-            });
-        } catch (e) { /* ignore fallback errors */ }
-        return false;
-    }
-};
-

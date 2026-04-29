@@ -22,3 +22,17 @@ export interface ChatPreview {
     conversation: ChatConversation;
 }
 
+export interface XmtpDeleteContent {
+    messageId: string;
+}
+
+export interface XmtpProfileContent {
+    displayName?: string;
+    avatarUrl?: string;
+}
+
+export interface XmtpCallContent {
+    type: 'offer' | 'answer' | 'ice-candidate' | 'end';
+    sdp?: string;
+    candidate?: RTCIceCandidateInit;
+}

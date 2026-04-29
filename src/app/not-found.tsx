@@ -9,7 +9,7 @@ export default function NotFound() {
           <h1 className="text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-800 drop-shadow-2xl">404</h1>
           <h2 className="text-2xl font-bold tracking-tight mb-2">Lost in Cyberspace</h2>
           <p className="text-zinc-500 text-sm leading-relaxed px-4">
-            The page you're searching for hasn't been broadcasted on the network.
+            The page you&apos;re searching for hasn&apos;t been broadcasted on the network.
           </p>
         </div>
         <Link

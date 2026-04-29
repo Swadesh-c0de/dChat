@@ -85,25 +85,25 @@ export function ProjectOverviewCard() {
                             <span className="text-zinc-700">├─</span>
                             <FileCode className="w-3 h-3 text-zinc-600" />
                             <span className="text-zinc-300">src/app/</span>
-                            <span className="text-zinc-600 italic">// Next.js Routes</span>
+                            <span className="text-zinc-600 italic">{"// Next.js Routes"}</span>
                         </div>
                         <div className="flex items-center gap-2 ml-3">
                             <span className="text-zinc-700">├─</span>
                             <Cpu className="w-3 h-3 text-zinc-600" />
                             <span className="text-zinc-300">src/lib/xmtp/</span>
-                            <span className="text-zinc-600 italic">// Protocol Logic</span>
+                            <span className="text-zinc-600 italic">{"// Protocol Logic"}</span>
                         </div>
                         <div className="flex items-center gap-2 ml-3">
                             <span className="text-zinc-700">├─</span>
                             <Layers className="w-3 h-3 text-zinc-600" />
                             <span className="text-zinc-300">src/components/</span>
-                            <span className="text-zinc-600 italic">// Modular UI</span>
+                            <span className="text-zinc-600 italic">{"// Modular UI"}</span>
                         </div>
                         <div className="flex items-center gap-2 ml-3">
                             <span className="text-zinc-700">└─</span>
                             <Database className="w-3 h-3 text-zinc-600" />
                             <span className="text-zinc-300">src/lib/ipfs.ts</span>
-                            <span className="text-zinc-600 italic">// File Sharing</span>
+                            <span className="text-zinc-600 italic">{"// File Sharing"}</span>
                         </div>
                     </div>
                 </div>

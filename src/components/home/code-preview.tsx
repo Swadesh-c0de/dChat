@@ -43,16 +43,16 @@ await conversation.send("Hello decentralized world!");
             </div>
             <div className="p-6 font-mono text-sm leading-relaxed overflow-x-auto whitespace-pre">
                 <pre className="text-zinc-400">
-                    <span className="text-zinc-600 italic">// 1. Initialize XMTP Client</span>{"\n"}
+                    <span className="text-zinc-600 italic">{"// 1. Initialize XMTP Client"}</span>{"\n"}
                     <span className="text-purple-400">const</span> xmtp = <span className="text-purple-400">await</span> Client.<span className="text-blue-400">create</span>(signer, {"{"}{"\n"}
-                    {"  "}env: <span className="text-emerald-400">"production"</span>{"\n"}
+                    {"  "}env: <span className="text-emerald-400">&quot;production&quot;</span>{"\n"}
                     {"}"});{"\n\n"}
-                    <span className="text-zinc-600 italic">// 2. Start Conversation</span>{"\n"}
+                    <span className="text-zinc-600 italic">{"// 2. Start Conversation"}</span>{"\n"}
                     <span className="text-purple-400">const</span> conversation = <span className="text-purple-400">await</span> xmtp.conversations.<span className="text-blue-400">newConversation</span>({"\n"}
-                    {"  "}<span className="text-emerald-400">"0x123..."</span> <span className="text-zinc-600 italic">// Recipient Address</span>{"\n"}
+                    {"  "}<span className="text-emerald-400">&quot;0x123...&quot;</span> <span className="text-zinc-600 italic">{"// Recipient Address"}</span>{"\n"}
                     );{"\n\n"}
-                    <span className="text-zinc-600 italic">// 3. Send Encrypted Message</span>{"\n"}
-                    <span className="text-purple-400">await</span> conversation.<span className="text-blue-400">send</span>(<span className="text-emerald-400">"Hello decentralized world!"</span>);
+                    <span className="text-zinc-600 italic">{"// 3. Send Encrypted Message"}</span>{"\n"}
+                    <span className="text-purple-400">await</span> conversation.<span className="text-blue-400">send</span>(<span className="text-emerald-400">&quot;Hello decentralized world!&quot;</span>);
                 </pre>
             </div>
         </div>

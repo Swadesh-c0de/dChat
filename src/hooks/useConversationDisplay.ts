@@ -92,7 +92,7 @@ export const useConversationDisplay = (conversation: ChatConversation): Conversa
             isMounted = false;
             window.removeEventListener('profile-updated', onProfileUpdated);
         };
-    }, [conversation.id]);
+    }, [conversation]);
 
     return display;
 };

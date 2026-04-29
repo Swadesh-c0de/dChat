@@ -17,10 +17,11 @@
     <a href="https://github.com/Swadesh-c0de/dChat/issues">Report Bug</a>
   </p>
 
-  [![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+  [![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
   [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
   [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.0-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
   [![XMTP](https://img.shields.io/badge/XMTP-V3-orange?style=for-the-badge)](https://xmtp.org/)
+  [![WebRTC](https://img.shields.io/badge/WebRTC-E2E-blue?style=for-the-badge)](https://webrtc.org/)
 
 </div>
 
@@ -28,7 +29,7 @@
 
 ## 🚀 Overview
 
-**dChat** is a cutting-edge decentralized messaging platform built on the **XMTP (Extensible Message Transport Protocol)**. It empowers users with end-to-end encrypted, wallet-to-wallet communication, ensuring that your data remains yours—private, secure, and permanent on the decentralized web.
+**dChat** is a cutting-edge decentralized communication platform built on **XMTP (Extensible Message Transport Protocol)** and **WebRTC**. It empowers users with end-to-end encrypted messaging and peer-to-peer calling, ensuring that your data remains yours—private, secure, and permanent on the decentralized web.
 
 <div align="center">
   <a href="https://d-chatapp.vercel.app">
@@ -44,8 +45,9 @@
 ## ✨ Key Features
 
 - 🔐 **Wallet-to-Wallet**: Instant messaging between any Ethereum-compatible addresses.
-- � **Decentralized Profiles**: Set an avatar and display name that syncs across the XMTP network.
-- �🛡️ **End-to-End Encryption**: Military-grade security powered by XMTP V3 (MLS protocol).
+- 📞 **E2E Voice & Video**: Encrypted peer-to-peer calling powered by WebRTC and XMTP signaling.
+- 👤 **Decentralized Profiles**: Set an avatar and display name that syncs across the XMTP network.
+- 🛡️ **End-to-End Encryption**: Military-grade security powered by XMTP V3 (MLS protocol).
 - 📁 **Private File Sharing**: Secure attachments (Images, PDF, etc.) via encrypted IPFS uploads.
 - 😄 **Emoji Keyboard**: Quickly insert emojis into your chats with an integrated picker.
 - ⚡ **Real-time Sync**: Seamless message streaming and instant notifications across devices.
@@ -59,13 +61,14 @@
 ## 🛠️ Tech Stack
 
 ### Core
-- **Framework**: [Next.js 15+](https://nextjs.org/) (App Router)
+- **Framework**: [Next.js 16+](https://nextjs.org/) (App Router)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
 - **Animations**: [Framer Motion](https://www.framer.com/motion/)
 
 ### Web3 & Protocol
-- **Messaging**: [@xmtp/browser-sdk](https://xmtp.org/) (V3)
+- **Messaging**: [@xmtp/browser-sdk](https://xmtp.org/) (V3 - MLS)
+- **Calling**: [WebRTC](https://webrtc.org/) (Peer-to-Peer)
 - **Wallet Connection**: [RainbowKit](https://www.rainbowkit.com/) & [Wagmi](https://wagmi.sh/)
 - **Decentralized Storage**: [Pinata IPFS](https://www.pinata.cloud/)
 - **Blockchain Utils**: [Viem](https://viem.sh/)

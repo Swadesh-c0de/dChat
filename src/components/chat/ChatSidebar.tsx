@@ -93,10 +93,6 @@ export const ChatSidebar = ({
     }, [client.inboxId]);
 
     // ─── listAndSetConversations ───────────────────────────────────────────────
-    // Reads conversations from the LOCAL DB and updates state.
-    // Truly local-only — reads client.conversations.list() directly without
-    // triggering a network sync. Use this inside stream callbacks and after
-    // an explicit sync has already been done.
     const listAndSetConversations = useCallback(async () => {
         try {
             const convs = await client.conversations.list({
@@ -111,8 +107,6 @@ export const ChatSidebar = ({
     }, [client, getDeletedBlocklist]);
 
     // ─── refreshConversations ──────────────────────────────────────────────────
-    // Syncs from XMTP network first (discovers new welcome messages), THEN lists.
-    // Use this for polling where we need to pull from the network.
     const refreshConversations = useCallback(async () => {
         try {
             await client.conversations.sync();
@@ -130,14 +124,9 @@ export const ChatSidebar = ({
                 setSyncStatus("Checking Network...");
             }
 
-            // Use the more thorough syncAll() for the very first load
-            // to ensure we catch everything (new welcomes + sync server history)
-            // In v7, syncAll() is the primary way to recover account history
             if (isMounted.current) setSyncStatus("Recovering History...");
             await client.conversations.syncAll();
 
-            // Explicitly sync conversations manager to materialize any newly discovered groups 
-            // after syncAll() has finished pulling metadata and welcomes.
             if (isMounted.current) setSyncStatus("Discovering Chats...");
             await client.conversations.sync();
 
@@ -146,14 +135,12 @@ export const ChatSidebar = ({
         } catch (e: any) {
             console.error("Failed initial load", e);
 
-            // Check for fatal cryptographic errors that require session repair
             if (e.message?.includes("SecretReuseError") || e.message?.includes("GenerationOutOfBound")) {
                 if (onFatalError) onFatalError(e);
                 return;
             }
 
             if (isMounted.current) setSyncStatus("Sync failed, retrying...");
-            // Fallback to refreshConversations if syncAll fails
             await refreshConversations();
         } finally {
             if (isMounted.current) {
@@ -170,7 +157,6 @@ export const ChatSidebar = ({
         let pollInterval: ReturnType<typeof setInterval> | undefined;
 
         // ─── CONVERSATION STREAM ───────────────────────────────────────────────────
-        // Fires immediately when User1 creates a DM and the welcome push arrives.
         const doConvStream = async () => {
             try {
                 const convStream = await client.conversations.stream();
@@ -183,10 +169,8 @@ export const ChatSidebar = ({
                             const blocklist = getDeletedBlocklist();
                             if (blocklist.includes(conversation.id)) continue;
 
-                            // Pre-sync so messages are ready when User2 clicks the chat
                             try { await conversation.sync(); } catch { /* ignore */ }
 
-                            // Add to list (deduplicated)
                             setConversations((prev: ChatConversation[]) => {
                                 if (prev.some((c: ChatConversation) => c.id === conversation.id)) return prev;
                                 return [conversation, ...prev];
@@ -224,7 +208,6 @@ export const ChatSidebar = ({
                         for await (const message of msgStream) {
                             if (!isStreaming || !isMounted.current) break;
 
-                            // Process global Profile Updates secretly
                             if (message.contentType?.typeId === "profile" && message.contentType?.authorityId === "xmtp.org") {
                                 const profileContent = message.content as any;
                                 const validProfile = {
@@ -239,7 +222,6 @@ export const ChatSidebar = ({
                                 }
                             }
 
-                            // Refresh sidebar immediately 
                             await listAndSetConversations();
                         }
                     } catch (e) {
@@ -266,41 +248,26 @@ export const ChatSidebar = ({
             if (!isMounted.current) return;
             try {
                 if (isMounted.current) setIsBackgroundSyncing(true);
-                // Background sync metadata every 30s to catch changes from other devices
                 await client.conversations.sync();
                 await listAndSetConversations();
             } catch (e) {
-                // Silently handle background sync failures
             } finally {
                 if (isMounted.current) setIsBackgroundSyncing(false);
             }
         }, 30000);
 
-        // Run the initial load on mount
         const init = async () => {
             try {
-                // doInitialLoad returns its own errors via console/syncStatus
-                // but we want to make sure we don't start streams if the client is effectively dead
                 await doInitialLoad();
-
                 if (!isMounted.current) return;
-
-                // ─── CONVERSATION STREAM ───────────────────────────────────────────────────
                 await doConvStream();
-
-                // ─── ALL-MESSAGES STREAM ──────────────────────────────────────────────────
                 await doMsgStream();
-
             } catch (e) {
                 console.error("Critical error in sidebar initialization", e);
             }
         };
 
         init();
-
-        // Polling removed — the 30s syncInterval above already handles background sync.
-        // The streamAllMessages + convStream cover all real-time updates.
-        // Adding a second polling loop here was redundant and doubled API traffic.
 
         return () => {
             isMounted.current = false;
@@ -309,11 +276,10 @@ export const ChatSidebar = ({
             if (pollInterval) clearInterval(pollInterval);
             if (syncInterval) clearInterval(syncInterval);
         };
-    }, [client, refreshTrigger, getDeletedBlocklist, refreshConversations, listAndSetConversations, doInitialLoad]); // Added doInitialLoad to deps
+    }, [client, refreshTrigger, getDeletedBlocklist, refreshConversations, listAndSetConversations, doInitialLoad]);
 
     return (
         <div className="flex flex-col h-full bg-zinc-950">
-            {/* Sidebar Header */}
             <div className="p-4 border-b border-zinc-900 flex justify-between items-center bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-10">
                 <div className="flex items-center gap-2">
                     <h2 className="text-lg font-bold text-white tracking-tight">Messages</h2>
@@ -337,16 +303,11 @@ export const ChatSidebar = ({
                 {loading ? (
                     <div className="flex flex-col items-center justify-center h-full space-y-8 p-8 animate-in fade-in duration-500">
                         <div className="relative w-24 h-24">
-                            {/* Outer tech ring */}
                             <div className="absolute inset-0 rounded-full border-[1.5px] border-zinc-800 border-t-emerald-500/50 animate-[spin_3s_linear_infinite]" />
-                            {/* Inner tech ring */}
                             <div className="absolute inset-2 rounded-full border-[1.5px] border-zinc-800 border-b-emerald-500/50 animate-[spin_2s_linear_infinite_reverse]" />
-                            {/* Pulse core */}
                             <div className="absolute inset-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 animate-pulse flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.1)]">
                                 <RefreshCw className="w-4 h-4 text-emerald-500 animate-[spin_4s_linear_infinite]" />
                             </div>
-
-                            {/* Rotating dots */}
                             <div className="absolute inset-0 animate-[spin_8s_linear_infinite]">
                                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
                             </div>
@@ -425,17 +386,6 @@ export const ChatSidebar = ({
                         <Settings className="w-3.5 h-3.5" />
                     </button>
                 </div>
-                <button
-                    onClick={async () => {
-                        const { wipeLocalXmtpData, disconnectXmtpClient } = await import("@/lib/xmtp/client");
-                        disconnectXmtpClient();
-                        await wipeLocalXmtpData();
-                        window.location.reload();
-                    }}
-                    className="mr-4 px-3 py-1 bg-red-600/20 text-red-500 rounded text-xs font-bold border border-red-500/50 hover:bg-red-600/40"
-                >
-                    WIPE DATABASE
-                </button>
             </div>
 
             <ProfileModal

@@ -1,16 +1,16 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { ChatConversation, ChatMessage } from "@/types/chat";
 import { useConversationDisplay } from "@/hooks/useConversationDisplay";
-import { fetchMessages, sendMessage, streamMessages, sendDeleteMessage } from "@/lib/xmtp/messages";
-import { ContentTypeDelete } from "@/lib/xmtp/codecs/DeleteCodec";
+import { sendMessage, sendDeleteMessage } from "@/lib/xmtp/messages";
 import { deleteConversation } from "@/lib/xmtp/conversations";
 import { useWebRTC } from "@/hooks/useWebRTC";
-import { VideoCallModal } from "./VideoCallModal";
-import { IncomingCallModal } from "./IncomingCallModal";
+import { useMessagesSync } from "@/hooks/useMessagesSync";
 import { MessageBubble } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
-import { Loader2, Trash2, ArrowLeft, Phone, Video } from "lucide-react";
+import { Loader2, Trash2, ArrowLeft, Phone, Video, MoreVertical } from "lucide-react";
 import { format, isSameDay, isToday, isYesterday } from "date-fns";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
     Dialog,
     DialogContent,
@@ -20,6 +20,14 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+
+const VideoCallModal = dynamic(() => import("./VideoCallModal").then(mod => mod.VideoCallModal));
+const IncomingCallModal = dynamic(() => import("./IncomingCallModal").then(mod => mod.IncomingCallModal));
 
 interface ChatWindowProps {
     conversation: ChatConversation;
@@ -29,28 +37,30 @@ interface ChatWindowProps {
 }
 
 export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, onBack }: ChatWindowProps) => {
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [isSending, setIsSending] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteChatDialog, setShowDeleteChatDialog] = useState(false);
     const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
-    const [optimisticMessages, setOptimisticMessages] = useState<ChatMessage[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Load hidden messages from local storage
-    const [hiddenMessageIds, setHiddenMessageIds] = useState<Set<string>>(new Set());
+    // Resolve display info
+    const { title, isLoading: isTitleLoading, avatarSeed } = useConversationDisplay(conversation);
 
-    useEffect(() => {
-        const stored = localStorage.getItem(`hidden-messages-${clientInboxId}`);
-        if (stored) {
-            setHiddenMessageIds(new Set(JSON.parse(stored)));
-        }
-    }, [clientInboxId]);
+    // WebRTC video/voice calling
+    const webrtc = useWebRTC({
+        conversation,
+        clientInboxId,
+    });
+
+    // Custom hook for message sync
+    const { messages, optimisticMessages, hiddenMessageIds, isLoading, setHiddenMessageIds, setOptimisticMessages } = useMessagesSync({
+        conversation,
+        clientInboxId,
+        handleCallSignal: webrtc.handleCallSignal
+    });
 
     const handleDeleteMessage = async (messageId: string, isRemote = false) => {
         if (isRemote) {
-            // Send delete command to network
             try {
                 await sendDeleteMessage(conversation, messageId);
             } catch (e) {
@@ -72,19 +82,15 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
     const handleDelete = async () => {
         setIsDeleting(true);
         try {
-            // 1. Set consent to Denied so it won't appear in conversation list
             await deleteConversation(conversation);
 
-            // 2. Add to permanent blocklist so it can never be restored
             const blocklist = JSON.parse(localStorage.getItem(`deleted-conversations-${clientInboxId}`) || '[]');
             if (!blocklist.includes(conversation.id)) {
                 blocklist.push(conversation.id);
                 localStorage.setItem(`deleted-conversations-${clientInboxId}`, JSON.stringify(blocklist));
             }
 
-            // 3. Clean up related local storage data for this conversation
             localStorage.removeItem(`hidden-messages-${clientInboxId}`);
-
             setShowDeleteChatDialog(false);
 
             if (onDeleteConversation) {
@@ -96,19 +102,6 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
             setIsDeleting(false);
         }
     };
-
-    // Resolve display info
-    const { title, isLoading: isTitleLoading, avatarSeed } = useConversationDisplay(conversation);
-
-    // WebRTC video/voice calling
-    const webrtc = useWebRTC({
-        conversation,
-        clientInboxId,
-    });
-
-    // Keep a ref to the latest handleCallSignal to avoid stale closures in the stream callback
-    const handleCallSignalRef = useRef(webrtc.handleCallSignal);
-    handleCallSignalRef.current = webrtc.handleCallSignal;
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         messagesEndRef.current?.scrollIntoView({ behavior });
@@ -128,207 +121,25 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
         }
     }, [messages]);
 
-    useEffect(() => {
-        let cleanup: (() => void) | undefined;
-        let cleanupFocus: (() => void) | undefined;
-        let pollInterval: ReturnType<typeof setInterval> | undefined;
-
-        const loadMessages = async () => {
-            setIsLoading(true);
-            try {
-                const processAndSetMessages = (newMessages: ChatMessage[]) => {
-                    const historicalDeletes = newMessages.filter(m =>
-                        m.contentType.typeId === "delete" && m.contentType.authorityId === "xmtp.org"
-                    );
-
-                    if (historicalDeletes.length > 0) {
-                        const newHiddenIds = new Set<string>();
-                        historicalDeletes.forEach(m => {
-                            const content = m.content as any;
-                            if (content && content.messageId) {
-                                newHiddenIds.add(content.messageId);
-                            }
-                        });
-
-                        setHiddenMessageIds(prev => {
-                            let changed = false;
-                            const next = new Set(prev);
-                            for (const id of newHiddenIds) {
-                                if (!next.has(id)) {
-                                    next.add(id);
-                                    changed = true;
-                                }
-                            }
-                            if (changed) {
-                                localStorage.setItem(`hidden-messages-${clientInboxId}`, JSON.stringify(Array.from(next)));
-                                return next;
-                            }
-                            return prev;
-                        });
-                    }
-
-                    // Process historical profiles (latest wins)
-                    const historicalProfiles = newMessages.filter(m =>
-                        m.contentType.typeId === "profile" && m.contentType.authorityId === "xmtp.org"
-                    );
-
-                    if (historicalProfiles.length > 0) {
-                        historicalProfiles.forEach(m => {
-                            const profileContent = m.content as any;
-                            const validProfile = {
-                                displayName: profileContent.displayName || "",
-                                avatarUrl: profileContent.avatarUrl || ""
-                            };
-                            try {
-                                localStorage.setItem(`profile-${m.senderInboxId}`, JSON.stringify(validProfile));
-                            } catch (e) {
-                                console.error("Failed to save peer profile history", e);
-                            }
-                        });
-                        window.dispatchEvent(new CustomEvent('profile-updated')); // refresh any listening hooks
-                    }
-
-
-                    const visibleMessages = newMessages.filter(m =>
-                        !(m.contentType.typeId === "delete" && m.contentType.authorityId === "xmtp.org") &&
-                        !(m.contentType.typeId === "profile" && m.contentType.authorityId === "xmtp.org") &&
-                        !(m.contentType.typeId === "call" && m.contentType.authorityId === "xmtp.org")
-                    );
-
-                    setMessages((prev) => {
-                        const merged = [...prev];
-                        let changed = false;
-                        visibleMessages.forEach(m => {
-                            if (!merged.find(pm => pm.id === m.id)) {
-                                merged.push(m);
-                                changed = true;
-                            }
-                        });
-                        
-                        if (!changed) return prev;
-                        
-                        // Sort by timestamp just in case they arrived out of order
-                        return merged.sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
-                    });
-                };
-
-                const initialMessages = await fetchMessages(conversation);
-                processAndSetMessages(initialMessages);
-
-                // Polling fallback to catch messages synced from other devices.
-                // The stream handles all real-time delivery; this only exists as a safety net
-                // for multi-device sync gaps. 30s is sufficient — no need for aggressive polling.
-                pollInterval = setInterval(async () => {
-                    if (document.visibilityState === 'visible') {
-                        try {
-                            const polledMessages = await fetchMessages(conversation);
-                            processAndSetMessages(polledMessages);
-                        } catch (e) {
-                            // silently ignore poll errors
-                        }
-                    }
-                }, 30000);
-
-                // Window focus sync
-                const handleFocus = () => {
-                    fetchMessages(conversation).then(processAndSetMessages).catch(() => {});
-                };
-                window.addEventListener('focus', handleFocus);
-                cleanupFocus = () => window.removeEventListener('focus', handleFocus);
-
-                cleanup = await streamMessages(conversation, (message) => {
-                    // Check for Delete Content Type
-                    if (message.contentType.typeId === "delete" && message.contentType.authorityId === "xmtp.org") {
-                        const deleteContent = message.content as any;
-                        setHiddenMessageIds(prev => {
-                            const next = new Set(prev);
-                            next.add(deleteContent.messageId);
-                            localStorage.setItem(`hidden-messages-${clientInboxId}`, JSON.stringify(Array.from(next)));
-                            return next;
-                        });
-                        return;
-                    }
-
-                    // Check for Profile Content Type
-                    if (message.contentType.typeId === "profile" && message.contentType.authorityId === "xmtp.org") {
-                        const profileContent = message.content as any;
-                        const validProfile = {
-                            displayName: profileContent.displayName || "",
-                            avatarUrl: profileContent.avatarUrl || ""
-                        };
-                        try {
-                            localStorage.setItem(`profile-${message.senderInboxId}`, JSON.stringify(validProfile));
-                            // Optional: dispatch a custom event if we want components to instantly rerender when someone's profile changes mid-chat
-                            window.dispatchEvent(new CustomEvent('profile-updated', { detail: { inboxId: message.senderInboxId } }));
-                        } catch (e) {
-                            console.error("Failed to save peer profile", e);
-                        }
-                        return; // Don't add internal profile update messages to the visual chat list
-                    }
-
-                    // Check for Call Content Type — route to WebRTC hook
-                    if (message.contentType.typeId === "call" && message.contentType.authorityId === "xmtp.org") {
-                        const signal = message.content as any;
-                        handleCallSignalRef.current(signal, message.senderInboxId);
-                        return; // Don't add call signals to the visual chat list
-                    }
-
-                    // Only append if not already in list
-                    setMessages((prev) => {
-                        if (prev.find(m => m.id === message.id)) return prev;
-                        return [...prev, message];
-                    });
-
-                    // Remove the first matching optimistic message when the real one arrives.
-                    // Only remove ONE entry per real message — otherwise sending the same text
-                    // twice would drop both optimistic bubbles when the first real message arrives.
-                    setOptimisticMessages(prev => {
-                        if (typeof message.content !== 'string') return prev;
-                        const idx = prev.findIndex(m =>
-                            typeof m.content === 'string' && m.content === message.content
-                        );
-                        if (idx === -1) return prev;
-                        const next = [...prev];
-                        next.splice(idx, 1);
-                        return next;
-                    });
-                });
-            } catch (e) {
-                console.error("Error loading chat", e);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-
-        loadMessages();
-
-        return () => {
-            if (cleanup) cleanup();
-            if (cleanupFocus) cleanupFocus();
-            if (pollInterval) clearInterval(pollInterval);
-        };
-    }, [conversation.id, clientInboxId]); // Re-run when conversation ID changes
-
     const handleSendMessage = async (content: string | File) => {
         setIsSending(true);
         const tempId = "temp-" + Date.now();
-        
+
         // Add optimistic message
-        const optimisticMsg: any = {
+        const optimisticMsg = {
             id: tempId,
             senderInboxId: clientInboxId,
             sentAt: new Date(),
             content: content instanceof File ? { filename: content.name, mimeType: content.type, data: new Uint8Array() } : content,
-            contentType: { 
-                authorityId: "xmtp.org", 
-                typeId: content instanceof File ? "remote-attachment" : "text", 
-                versionMajor: 1, 
+            contentType: {
+                authorityId: "xmtp.org",
+                typeId: content instanceof File ? "remote-attachment" : "text",
+                versionMajor: 1,
                 versionMinor: 0,
                 parameters: {}
             },
             isOptimistic: true // Custom flag for UI
-        };
+        } as unknown as ChatMessage;
 
         setOptimisticMessages(prev => [...prev, optimisticMsg]);
 
@@ -362,7 +173,7 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                     )}
                     <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold bg-zinc-800 border border-zinc-700 overflow-hidden shrink-0">
                         {avatarSeed?.startsWith("http") ? (
-                            <img src={avatarSeed} alt="Avatar" className="w-full h-full object-cover" />
+                            <Image src={avatarSeed} alt="Avatar" width={40} height={40} className="w-full h-full object-cover" />
                         ) : (
                             isTitleLoading ? "?" : title.slice(0, 2).toUpperCase()
                         )}
@@ -392,14 +203,30 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                     >
                         <Video className="w-5 h-5" />
                     </button>
-                    <button
-                        onClick={() => setShowDeleteChatDialog(true)}
-                        disabled={isDeleting}
-                        className="p-2.5 text-zinc-400 hover:text-zinc-50 hover:bg-zinc-900 rounded-full transition-all duration-200"
-                        title="Delete Chat"
-                    >
-                        {isDeleting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
-                    </button>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button
+                                className="p-2.5 text-zinc-400 hover:text-zinc-50 hover:bg-zinc-900 rounded-full transition-all duration-200"
+                                title="More options"
+                            >
+                                <MoreVertical className="w-5 h-5" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 bg-zinc-900 border-zinc-800 p-1" align="end">
+                            <button
+                                onClick={() => setShowDeleteChatDialog(true)}
+                                disabled={isDeleting}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-md transition-colors"
+                            >
+                                {isDeleting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                )}
+                                <span>Delete Conversation</span>
+                            </button>
+                        </PopoverContent>
+                    </Popover>
                 </div>
             </div>
 
