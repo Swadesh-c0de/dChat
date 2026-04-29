@@ -48,8 +48,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
     return (
         <>
             {/* Hidden audio element — always plays remote audio */}
-            <audio ref={webrtc.remoteAudioRef as React.RefObject<HTMLAudioElement>} autoPlay playsInline />
-
+            <audio ref={webrtc.remoteAudioRef as React.RefObject<HTMLAudioElement | null>} autoPlay playsInline />
             {/* Minimized floating pill — shown on top when minimized */}
             {isMinimized && (
                 <div
@@ -62,7 +61,6 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
                     <Maximize2 className="w-4 h-4 text-zinc-400" />
                 </div>
             )}
-
             {/*
                 Full call UI — always rendered to keep video elements mounted.
                 When minimized, we move it off-screen instead of unmounting.
@@ -77,14 +75,14 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
                 <div className="flex-1 relative overflow-hidden">
                     {webrtc.isVideo ? (
                         <video
-                            ref={webrtc.remoteVideoRef as React.RefObject<HTMLVideoElement>}
+                            ref={webrtc.remoteVideoRef as React.RefObject<HTMLVideoElement | null>}
                             autoPlay
                             playsInline
                             className="w-full h-full object-cover"
                         />
                     ) : (
                         /* Audio-only: show avatar */
-                        <div className="w-full h-full flex flex-col items-center justify-center gap-6">
+                        (<div className="w-full h-full flex flex-col items-center justify-center gap-6">
                             <div className="w-28 h-28 rounded-full bg-zinc-800 border-2 border-zinc-700 flex items-center justify-center shadow-2xl">
                                 <span className="text-4xl font-bold text-white">
                                     {peerName.slice(0, 2).toUpperCase()}
@@ -115,7 +113,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
                                     ))}
                                 </div>
                             )}
-                        </div>
+                        </div>)
                     )}
 
                     {/* Calling / Ringing overlay */}
@@ -135,7 +133,7 @@ export const VideoCallModal = ({ webrtc, peerName }: VideoCallModalProps) => {
                     {webrtc.isVideo && (
                         <div className="absolute top-4 right-4 w-36 h-48 sm:w-44 sm:h-56 rounded-2xl overflow-hidden border-2 border-zinc-700 shadow-2xl bg-zinc-900">
                             <video
-                                ref={webrtc.localVideoRef as React.RefObject<HTMLVideoElement>}
+                                ref={webrtc.localVideoRef as React.RefObject<HTMLVideoElement | null>}
                                 autoPlay
                                 playsInline
                                 muted

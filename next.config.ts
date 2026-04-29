@@ -4,7 +4,6 @@ const nextConfig: NextConfig = {
   // Disable strict mode — XMTP's WASM SDK creates persistent DB handles
   // that break when React re-runs effects in dev mode
   reactStrictMode: false,
-  allowedDevOrigins: ['tapioca-vegan-cussed.ngrok-free.dev'],
   async headers() {
     return [
       {

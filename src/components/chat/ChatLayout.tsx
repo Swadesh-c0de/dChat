@@ -57,6 +57,7 @@ export const ChatLayout = ({ client, onFatalError }: ChatLayoutProps) => {
             >
                 {selectedConversation ? (
                     <ChatWindow
+                        key={selectedConversation.id}
                         conversation={selectedConversation!}
                         clientInboxId={client.inboxId}
                         onDeleteConversation={handleConversationDeleted}

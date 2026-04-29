@@ -215,7 +215,9 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                 const initialMessages = await fetchMessages(conversation);
                 processAndSetMessages(initialMessages);
 
-                // Polling fallback to catch messages synced from other devices
+                // Polling fallback to catch messages synced from other devices.
+                // The stream handles all real-time delivery; this only exists as a safety net
+                // for multi-device sync gaps. 30s is sufficient — no need for aggressive polling.
                 pollInterval = setInterval(async () => {
                     if (document.visibilityState === 'visible') {
                         try {
@@ -225,7 +227,7 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                             // silently ignore poll errors
                         }
                     }
-                }, 5000);
+                }, 30000);
 
                 // Window focus sync
                 const handleFocus = () => {
@@ -277,17 +279,19 @@ export const ChatWindow = ({ conversation, clientInboxId, onDeleteConversation, 
                         return [...prev, message];
                     });
 
-                    // Remove from optimistic list if present
-                    setOptimisticMessages(prev => prev.filter(m => {
-                        // In v3, we can't easily correlate until the ID is known,
-                        // but once the stream message arrives, we can check if it matches an optimistic one's content/sender.
-                        // For string content:
-                        if (typeof m.content === 'string' && typeof message.content === 'string') {
-                            return m.content !== message.content;
-                        }
-                        // For files, it's trickier, so we can use a more clever approach later.
-                        return true; 
-                    }));
+                    // Remove the first matching optimistic message when the real one arrives.
+                    // Only remove ONE entry per real message — otherwise sending the same text
+                    // twice would drop both optimistic bubbles when the first real message arrives.
+                    setOptimisticMessages(prev => {
+                        if (typeof message.content !== 'string') return prev;
+                        const idx = prev.findIndex(m =>
+                            typeof m.content === 'string' && m.content === message.content
+                        );
+                        if (idx === -1) return prev;
+                        const next = [...prev];
+                        next.splice(idx, 1);
+                        return next;
+                    });
                 });
             } catch (e) {
                 console.error("Error loading chat", e);

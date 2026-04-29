@@ -112,18 +112,25 @@ export const streamMessages = async (
     conversation: ChatConversation,
     onMessage: (message: ChatMessage) => void
 ): Promise<() => void> => {
-    let stream: any;
     let isStreaming = true;
 
+    // Check activity before streaming
+    try {
+        const active = await (conversation as any).isActive();
+        if (!active) {
+            await conversation.sync();
+        }
+    } catch (e) {
+        console.warn("Activity check before stream failed (non-critical):", e);
+    }
+
+    // Await stream setup BEFORE returning cleanup — ensures cleanup always
+    // holds a valid stream reference and can never be a no-op due to a race condition.
+    const stream = await conversation.stream();
+
+    // Run the message loop in the background
     (async () => {
         try {
-            // Check activity before streaming
-            const active = await (conversation as any).isActive();
-            if (!active) {
-                await conversation.sync();
-            }
-
-            stream = await conversation.stream();
             for await (const message of stream) {
                 if (!isStreaming) break;
                 onMessage(message);
@@ -135,8 +142,11 @@ export const streamMessages = async (
 
     return () => {
         isStreaming = false;
-        if (stream && typeof stream.return === 'function') {
-            stream.return();
+        if (typeof stream?.return === 'function') {
+            try {
+                const res = stream.return();
+                if (res instanceof Promise) res.catch(() => {});
+            } catch (e) { /* ignore */ }
         }
     };
 };

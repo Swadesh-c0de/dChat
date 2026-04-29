@@ -94,13 +94,16 @@ export const ChatSidebar = ({
 
     // ─── listAndSetConversations ───────────────────────────────────────────────
     // Reads conversations from the LOCAL DB and updates state.
-    // Does NOT call sync() — use this when the XMTP stream has already
-    // materialized the conversation (e.g. inside streamAllMessages callback).
+    // Truly local-only — reads client.conversations.list() directly without
+    // triggering a network sync. Use this inside stream callbacks and after
+    // an explicit sync has already been done.
     const listAndSetConversations = useCallback(async () => {
         try {
-            const convs = await listConversations(client);
+            const convs = await client.conversations.list({
+                consentStates: [ConsentState.Allowed, ConsentState.Unknown],
+            });
             const blocklist = getDeletedBlocklist();
-            const filtered = convs.filter(c => !blocklist.includes(c.id));
+            const filtered = convs.filter((c: ChatConversation) => !blocklist.includes(c.id));
             if (isMounted.current) setConversations(filtered);
         } catch (e) {
             console.error("Failed to list conversations", e);
@@ -132,7 +135,7 @@ export const ChatSidebar = ({
             // In v7, syncAll() is the primary way to recover account history
             if (isMounted.current) setSyncStatus("Recovering History...");
             await client.conversations.syncAll();
-            
+
             // Explicitly sync conversations manager to materialize any newly discovered groups 
             // after syncAll() has finished pulling metadata and welcomes.
             if (isMounted.current) setSyncStatus("Discovering Chats...");
@@ -142,7 +145,7 @@ export const ChatSidebar = ({
             await listAndSetConversations();
         } catch (e: any) {
             console.error("Failed initial load", e);
-            
+
             // Check for fatal cryptographic errors that require session repair
             if (e.message?.includes("SecretReuseError") || e.message?.includes("GenerationOutOfBound")) {
                 if (onFatalError) onFatalError(e);
@@ -196,7 +199,12 @@ export const ChatSidebar = ({
 
                 convStreamCleanup = () => {
                     isStreaming = false;
-                    if (convStream && typeof convStream.return === "function") convStream.return();
+                    if (convStream && typeof convStream.return === "function") {
+                        try {
+                            const res = convStream.return();
+                            if (res instanceof Promise) res.catch(() => {});
+                        } catch (e) { /* ignore */ }
+                    }
                 };
             } catch (e) {
                 console.error("Failed to start conv stream", e);
@@ -241,7 +249,12 @@ export const ChatSidebar = ({
 
                 msgStreamCleanup = () => {
                     isStreaming = false;
-                    if (msgStream && typeof msgStream.return === "function") msgStream.return();
+                    if (msgStream && typeof msgStream.return === "function") {
+                        try {
+                            const res = msgStream.return();
+                            if (res instanceof Promise) res.catch(() => {});
+                        } catch (e) { /* ignore */ }
+                    }
                 };
             } catch (e) {
                 console.error("Failed to start all-messages stream", e);
@@ -269,7 +282,7 @@ export const ChatSidebar = ({
                 // doInitialLoad returns its own errors via console/syncStatus
                 // but we want to make sure we don't start streams if the client is effectively dead
                 await doInitialLoad();
-                
+
                 if (!isMounted.current) return;
 
                 // ─── CONVERSATION STREAM ───────────────────────────────────────────────────
@@ -285,13 +298,9 @@ export const ChatSidebar = ({
 
         init();
 
-        // ─── POLLING (every 10 seconds - reduced for production stability) ─────────
-        pollInterval = setInterval(async () => {
-            if (!isMounted.current) return;
-            try {
-                await refreshConversations();
-            } catch { /* ignore */ }
-        }, 10000);
+        // Polling removed — the 30s syncInterval above already handles background sync.
+        // The streamAllMessages + convStream cover all real-time updates.
+        // Adding a second polling loop here was redundant and doubled API traffic.
 
         return () => {
             isMounted.current = false;
@@ -336,7 +345,7 @@ export const ChatSidebar = ({
                             <div className="absolute inset-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 animate-pulse flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.1)]">
                                 <RefreshCw className="w-4 h-4 text-emerald-500 animate-[spin_4s_linear_infinite]" />
                             </div>
-                            
+
                             {/* Rotating dots */}
                             <div className="absolute inset-0 animate-[spin_8s_linear_infinite]">
                                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
@@ -416,7 +425,17 @@ export const ChatSidebar = ({
                         <Settings className="w-3.5 h-3.5" />
                     </button>
                 </div>
-                <img src="/dChat-dark.svg" alt="dChat" className="h-8 mr-4 w-auto opacity-80 hover:opacity-100 transition-opacity scale-[2.5]" />
+                <button
+                    onClick={async () => {
+                        const { wipeLocalXmtpData, disconnectXmtpClient } = await import("@/lib/xmtp/client");
+                        disconnectXmtpClient();
+                        await wipeLocalXmtpData();
+                        window.location.reload();
+                    }}
+                    className="mr-4 px-3 py-1 bg-red-600/20 text-red-500 rounded text-xs font-bold border border-red-500/50 hover:bg-red-600/40"
+                >
+                    WIPE DATABASE
+                </button>
             </div>
 
             <ProfileModal
