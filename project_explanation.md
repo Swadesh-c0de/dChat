@@ -233,7 +233,6 @@ sequenceDiagram
     participant Alice as Alice (Caller)
     participant XMTP as Encrypted XMTP Transport
     participant Bob as Bob (Callee)
-    participant Media as P2P Media Layer (WebRTC)
 
     Alice->>Alice: 1. Generate SDP Offer
     Alice->>XMTP: 2. Send CallCodec { type: 'offer', sdp, callType: 'video' }
@@ -251,7 +250,7 @@ sequenceDiagram
         XMTP->>Alice: 9b. Add ICE Candidate
     end
 
-    Alice<<=>>Bob: 10. Direct DTLS-SRTP Media Streams Active (Audio/Video)
+    Alice<<->>Bob: 10. Direct DTLS-SRTP Media Streams Active (Audio/Video)
 ```
 
 ---
@@ -286,29 +285,29 @@ Sending a file attachment in dChat involves a multi-stage, client-side zero-know
 ```mermaid
 flowchart LR
     subgraph SENDER["1. Sender Client"]
-        A[Raw File File/Blob] -->|Slice into bytes| B[Uint8Array]
-        B -->|AES-256-GCM Encrypt| C[Ciphertext Blob]
-        B -->|SHA-256 Hash| D[contentDigest]
-        K[Generate 32-Byte Secret] --> C
+        A["Raw File (File/Blob)"] -->|Slice into bytes| B["Uint8Array"]
+        B -->|AES-256-GCM Encrypt| C["Ciphertext Blob"]
+        B -->|SHA-256 Hash| D["contentDigest"]
+        K["Generate 32-Byte Secret"] --> C
     end
 
     subgraph STORAGE["2. IPFS Storage Tier"]
-        C -->|Pinata SDK Upload| E[IPFS Network (CID)]
+        C -->|Pinata SDK Upload| E["IPFS Network (CID)"]
     end
 
     subgraph PAYLOAD["3. XMTP MLS Stream"]
-        E -.->|url: ipfs://CID| F[RemoteAttachment Message]
+        E -.->|url: ipfs://CID| F["RemoteAttachment Message"]
         K -.->|secret: 32 bytes| F
         D -.->|contentDigest| F
     end
 
     subgraph RECIPIENT["4. Recipient Client"]
-        F --> G[Fetch Ciphertext from IPFS]
-        G --> H{Verify SHA-256 Digest}
-        H -->|Match| I[AES-256-GCM Decrypt in Memory]
-        H -->|Mismatch| J[Throw Tamper Error]
-        I --> L[URL.createObjectURL Blob URI]
-        L --> M[Render Image / File Link]
+        F --> G["Fetch Ciphertext from IPFS"]
+        G --> H{"Verify SHA-256 Digest"}
+        H -->|Match| I["AES-256-GCM Decrypt in Memory"]
+        H -->|Mismatch| J["Throw Tamper Error"]
+        I --> L["URL.createObjectURL Blob URI"]
+        L --> M["Render Image / File Link"]
     end
 ```
 

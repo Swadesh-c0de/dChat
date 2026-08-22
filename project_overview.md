@@ -192,7 +192,6 @@ sequenceDiagram
     participant Alice as Alice (Caller)
     participant XMTP as XMTP V3 Network (Encrypted)
     participant Bob as Bob (Callee)
-    participant P2P as Direct P2P MediaStream
 
     Alice->>Alice: Acquire Local MediaStream (Mic/Camera)
     Alice->>Alice: Create RTCPeerConnection & SDP Offer
@@ -214,8 +213,8 @@ sequenceDiagram
         XMTP->>Alice: Deliver ICE Candidate
     end
 
-    Alice<-->Bob: WebRTC PeerConnection Connected
-    Alice<<=>>Bob: Direct Encrypted Audio/Video (DTLS-SRTP)
+    Alice<<->>Bob: WebRTC PeerConnection Connected
+    Alice<<-->>Bob: Direct Encrypted Audio/Video (DTLS-SRTP)
 ```
 
 ---
