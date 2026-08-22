@@ -363,6 +363,6 @@ Distributed under the **MIT License**. See [`LICENSE`](./LICENSE) for full detai
 <div align="center">
   <p>Crafted with precision for the <b>Decentralized Web</b>.</p>
   <p>
-    <a href="https://github.com/Swadesh-c0de/dChat">⭐ Star us on GitHub</a> • <a href="https://d-chatapp.vercel.app">🚀 Launch dChat</a>
+    <a href="https://github.com/Swadesh-c0de/dChat">⭐ Star us on GitHub</a> | <a href="https://d-chatapp.vercel.app">🚀 Launch dChat</a>
   </p>
 </div>
